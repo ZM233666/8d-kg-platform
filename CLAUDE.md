@@ -1,4 +1,52 @@
-# CLAUDE.md
+# CLAUDE.md — 8D 报告知识图谱平台
+
+## 0. 开发环境架构（务必先读）
+
+本项目采用「**本地代码 + 远端数据库**」混合开发模式。**严禁生成任何 docker-compose.yml**，也不要在本地启动数据库容器。所有数据库已部署在远端服务器，通过 SSH 隧道暴露在本地。
+
+### 拓扑
+
+    本地 macOS 开发机                              远端服务器 aistation
+    /Users/.../8d-kg-platform/                    Ubuntu 22.04
+                                                  /opt/8d-kg-infra/
+      - backend (uvicorn :8000)
+      - frontend (vite :5173)        SSH 公钥          4 个 Docker 容器（已就绪）
+      - SSH 隧道 (autossh)        ─────────────►       • 8dkg-postgres
+                                  117.62.232.51         • 8dkg-neo4j
+                                  :10022                • 8dkg-redis
+                                  (frp → 内网 :22)      • 8dkg-minio
+
+### SSH 隧道端口映射（本地 → 远端容器 127.0.0.1）
+
+| 服务         | 本地端口 | 远端容器端口 | 用途              |
+|--------------|----------|--------------|-------------------|
+| Postgres     | 5432     | 15432        | 元数据 + pgvector |
+| Neo4j HTTP   | 7474     | 17474        | Neo4j Browser     |
+| Neo4j Bolt   | 7687     | 17687        | 图数据库驱动      |
+| Redis        | 6379     | 26379        | Celery Broker/缓存|
+| MinIO API    | 9000     | 19000        | 对象存储          |
+| MinIO 控制台 | 9001     | 19001        | Web UI            |
+
+`~/.ssh/config` 已定义 `Host devserver`。启动隧道：`ssh -fN devserver`（后续切到 `autossh` 守护）。
+
+### 强制约束
+
+1. **禁止生成 `docker-compose.yml`** 或任何启动数据库容器的脚本。数据库视为**外部已就绪服务**。
+2. 所有连接配置统一通过 `.env` 注入，主机一律写 `localhost`、端口一律写**本地端口**（5432/7474/7687/6379/9000/9001）。
+3. `.env.example` 不含真实密码；真实密码仅存在于本地 `.env`（已加入 `.gitignore`）和密码管理器。
+4. 启动顺序：① `ssh -fN devserver`（确保隧道存活） → ② `make backend` → ③ `make worker` → ④ `make frontend`。
+5. 健康检查：`curl http://localhost:8000/health` 必须返回 `{"db":"ok","neo4j":"ok","redis":"ok","minio":"ok"}`。
+6. Makefile 必须提供 `tunnel-up` 与 `tunnel-status` 目标。
+
+### 远端服务器信息（仅供查阅）
+
+- SSH 入口：`ssh devserver`（= `root@117.62.232.51:10022`，frp 转发到内网 aistation:22）
+- 容器目录：`/opt/8d-kg-infra/`
+- 容器密码源：`/opt/8d-kg-infra/.env`（已迁入本地 `.env`）
+- 数据卷：`8dkg_pg_data`、`8dkg_neo4j_data`、`8dkg_neo4j_logs`、`8dkg_redis_data`、`8dkg_minio_data`
+
+---
+
 
 本文件是 Claude Code 在本仓库工作时的系统级指令。每次开始新任务前必须阅读本文件以及 `docs/` 目录下的相关文档。
 
