@@ -1,0 +1,1599 @@
+{
+  "EightDReport": {
+    "additionalProperties": false,
+    "description": "8D 报告主体。业务键：report_id。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "report_id": {
+        "description": "业务键，来自质量通知号或文件 hash",
+        "title": "Report Id",
+        "type": "string"
+      },
+      "title": {
+        "description": "报告标题",
+        "title": "Title",
+        "type": "string"
+      },
+      "quality_notification_no": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "质量通知号",
+        "title": "Quality Notification No"
+      },
+      "closure_status": {
+        "description": "闭环状态",
+        "enum": [
+          "open",
+          "closed",
+          "partially_closed",
+          "root_cause_unidentified"
+        ],
+        "title": "Closure Status",
+        "type": "string"
+      },
+      "report_date": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "报告日期",
+        "title": "Report Date"
+      },
+      "report_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "报告版本，如 '00-zh'/'1.0'",
+        "title": "Report Version"
+      },
+      "customer_complaint_no": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "客户投诉号",
+        "title": "Customer Complaint No"
+      },
+      "field_completeness": {
+        "default": 1.0,
+        "description": "字段完整度，识别到占位符则降低",
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Field Completeness",
+        "type": "number"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "report_id",
+      "title",
+      "closure_status"
+    ],
+    "title": "EightDReport",
+    "type": "object"
+  },
+  "Project": {
+    "additionalProperties": false,
+    "description": "项目。业务键：project_no。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "project_no": {
+        "description": "项目编号",
+        "title": "Project No",
+        "type": "string"
+      },
+      "name": {
+        "description": "项目名称",
+        "title": "Name",
+        "type": "string"
+      },
+      "line_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "线路名，如 '兰州2号线'",
+        "title": "Line Name"
+      },
+      "system": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "系统，如 '制动控制系统'",
+        "title": "System"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "project_no",
+      "name"
+    ],
+    "title": "Project",
+    "type": "object"
+  },
+  "Customer": {
+    "additionalProperties": false,
+    "description": "客户。业务键：name。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "name": {
+        "description": "客户名称",
+        "title": "Name",
+        "type": "string"
+      },
+      "short_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "简称",
+        "title": "Short Name"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "name"
+    ],
+    "title": "Customer",
+    "type": "object"
+  },
+  "Operator": {
+    "additionalProperties": false,
+    "description": "运营方。业务键：name。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "name": {
+        "description": "运营方名称",
+        "title": "Name",
+        "type": "string"
+      },
+      "region": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "区域",
+        "title": "Region"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "name"
+    ],
+    "title": "Operator",
+    "type": "object"
+  },
+  "Part": {
+    "additionalProperties": false,
+    "description": "部件（v0.1 简化版，不拆分 Type/Instance）。业务键：part_no。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "part_no": {
+        "description": "克诺尔部件号，如 'G7029/SMF01'",
+        "title": "Part No",
+        "type": "string"
+      },
+      "part_name": {
+        "description": "中文名，如 'EP2002阀'",
+        "title": "Part Name",
+        "type": "string"
+      },
+      "serial_numbers": {
+        "description": "v0.1 临时序列号列表；v0.2 拆分为 PartInstance",
+        "items": {
+          "type": "string"
+        },
+        "title": "Serial Numbers",
+        "type": "array"
+      },
+      "batch_numbers": {
+        "description": "批次号列表",
+        "items": {
+          "type": "string"
+        },
+        "title": "Batch Numbers",
+        "type": "array"
+      },
+      "parent_part_no": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "父部件号",
+        "title": "Parent Part No"
+      },
+      "operating_mileage_km": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "操作里程（km）",
+        "title": "Operating Mileage Km"
+      },
+      "quantity_affected": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "受影响数量",
+        "title": "Quantity Affected"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "part_no",
+      "part_name"
+    ],
+    "title": "Part",
+    "type": "object"
+  },
+  "Material": {
+    "additionalProperties": false,
+    "description": "材料。业务键：material_grade。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "material_grade": {
+        "description": "材料牌号，如 'X10CrNi18-8'",
+        "title": "Material Grade",
+        "type": "string"
+      },
+      "material_type": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "材料类型，如 '不锈钢'",
+        "title": "Material Type"
+      },
+      "standards": {
+        "description": "执行标准号列表",
+        "items": {
+          "type": "string"
+        },
+        "title": "Standards",
+        "type": "array"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "material_grade"
+    ],
+    "title": "Material",
+    "type": "object"
+  },
+  "Standard": {
+    "additionalProperties": false,
+    "description": "标准/规范。业务键：standard_no。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "standard_no": {
+        "description": "标准号，如 'EN 10270-3:2011'",
+        "title": "Standard No",
+        "type": "string"
+      },
+      "standard_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "标准名称",
+        "title": "Standard Name"
+      },
+      "issuing_body": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "发布机构，如 'EN'/'GB'/'DIN'",
+        "title": "Issuing Body"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "standard_no"
+    ],
+    "title": "Standard",
+    "type": "object"
+  },
+  "TestMethod": {
+    "additionalProperties": false,
+    "description": "检测方法。业务键：method_name（受控词表）。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "method_name": {
+        "description": "方法名称，如 '断口分析'/'硬度试验'/'X-ray'",
+        "title": "Method Name",
+        "type": "string"
+      },
+      "method_category": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "方法类别，如 '金相'/'化学'/'无损'",
+        "title": "Method Category"
+      },
+      "standard_ref": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "引用的标准号",
+        "title": "Standard Ref"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "method_name"
+    ],
+    "title": "TestMethod",
+    "type": "object"
+  },
+  "Process": {
+    "additionalProperties": false,
+    "description": "工艺/工序（SCHEMA.md §3.11）。业务键：name。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "name": {
+        "description": "工序名，如 '热处理'",
+        "title": "Name",
+        "type": "string"
+      },
+      "process_type": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "工序类型",
+        "title": "Process Type"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "name"
+    ],
+    "title": "Process",
+    "type": "object"
+  },
+  "Equipment": {
+    "additionalProperties": false,
+    "description": "设备（SCHEMA.md §3.11）。业务键：name。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "name": {
+        "description": "设备名",
+        "title": "Name",
+        "type": "string"
+      },
+      "model": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "设备型号",
+        "title": "Model"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "name"
+    ],
+    "title": "Equipment",
+    "type": "object"
+  }
+}

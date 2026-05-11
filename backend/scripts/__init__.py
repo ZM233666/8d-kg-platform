@@ -1,0 +1,1 @@
+"""Scripts module (empty placeholder)."""

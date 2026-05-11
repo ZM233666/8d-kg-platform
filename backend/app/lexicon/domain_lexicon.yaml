@@ -1,0 +1,146 @@
+# 8D 报告知识图谱 - 领域词典 v0.1
+# 三大类：同义词规约、否定词检测、章节路由关键词
+# 概念层种子词表也放这里（v0.1 不创建新概念，仅链接）
+
+synonyms:
+  # 失效模式
+  - canonical: "弹簧断裂"
+    aliases: ["弹簧断", "弹簧失效", "spring fracture", "spring failure"]
+  - canonical: "阀体泄漏"
+    aliases: ["阀泄漏", "阀漏气", "valve leakage", "valve leak"]
+  - canonical: "螺栓断裂"
+    aliases: ["螺栓断", "螺栓失效", "bolt fracture", "bolt failure"]
+  - canonical: "密封失效"
+    aliases: ["密封破坏", "密封泄漏", "seal failure", "seal leak"]
+  - canonical: "轴承损坏"
+    aliases: ["轴承破坏", "轴承断裂", "bearing failure"]
+  # 缺陷类型
+  - canonical: "气孔"
+    aliases: ["气泡", "porosity", "gas hole"]
+  - canonical: "夹杂"
+    aliases: ["夹杂物", "杂质", "inclusion"]
+  - canonical: "裂纹"
+    aliases: ["裂缝", "crack"]
+  - canonical: "疏松"
+    aliases: ["孔隙", "porosity"]
+  - canonical: "脱碳"
+    aliases: ["表面脱碳", "decarburization"]
+  - canonical: "腐蚀"
+    aliases: ["锈蚀", "corrosion", "oxidation"]
+  # 检测方法
+  - canonical: "断口分析"
+    aliases: ["断口检查", "fractographic analysis", "fractography"]
+  - canonical: "金相分析"
+    aliases: ["金相检验", "metallographic analysis"]
+  - canonical: "硬度试验"
+    aliases: ["硬度测试", "hardness test"]
+  - canonical: "化学成分分析"
+    aliases: ["成分分析", "chemical analysis"]
+
+negation_markers:
+  # 中文否定词（用于 Finding.polarity 判定）
+  - "未发现"
+  - "未见"
+  - "无"
+  - "非"
+  - "未"
+  - "没有"
+  - "不存在"
+  - "不属于"
+  - "排除"
+  - "并非"
+  - "不存在于"
+  # 英文
+  - "no"
+  - "not"
+  - "none"
+  - "without"
+  - "ruled out"
+  - "excluded"
+  - "absent"
+  - "negative"
+  - "no evidence"
+  - "no indication"
+
+chapter_routing:
+  # 关键词 → chunk_role / 子模块路由
+  defect:
+    - "问题描述"
+    - "故障描述"
+    - "故障现象"
+    - "故障清单"
+    - "Problem Description"
+    - "D2"
+  containment:
+    - "临时措施"
+    - "应急措施"
+    - "Containment"
+    - "D3"
+  root_cause:
+    - "根本原因"
+    - "根因分析"
+    - "原因分析"
+    - "Root Cause"
+    - "D4"
+  corrective_action:
+    - "纠正措施"
+    - "永久措施"
+    - "Corrective Action"
+    - "D5"
+    - "D6"
+  preventive_action:
+    - "预防措施"
+    - "Preventive Action"
+    - "D7"
+  verification:
+    - "验证"
+    - "效果确认"
+    - "Verification"
+    - "D8"
+  closure:
+    - "结案"
+    - "关闭"
+    - "Closure"
+  metadata:
+    - "项目简介"
+    - "变更记录"
+    - "团队介绍"
+  background:
+    - "背景"
+    - "结构说明"
+    - "功能介绍"
+
+# 概念种子（v0.1 仅参考，不自动建节点）
+concept_seeds:
+  failure_mode:
+    - "断裂"
+    - "泄漏"
+    - "卡滞"
+    - "失效"
+    - "腐蚀"
+    - "变形"
+    - "磨损"
+  fractographic_feature:
+    - "疲劳条纹"
+    - "解理面"
+    - "韧窝"
+    - "海滩花样"
+    - "疲劳条带"
+  metallurgical_defect:
+    - "气孔"
+    - "夹杂"
+    - "偏析"
+    - "脱碳"
+    - "疏松"
+  root_cause_category:
+    - "外部过载"
+    - "材料缺陷"
+    - "设计不足"
+    - "工艺问题"
+    - "操作不当"
+  action_type:
+    - "100%全检"
+    - "工艺改进"
+    - "模具更换"
+    - "供应商整改"
+    - "设计变更"

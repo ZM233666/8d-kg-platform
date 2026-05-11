@@ -1,0 +1,718 @@
+{
+  "FailureModeConcept": {
+    "additionalProperties": false,
+    "description": "失效模式概念树（§5.1）。\n\n初始树：断裂 / 疲劳断裂 / 脆性断裂 / 应力腐蚀开裂；变形 / 弹性变形超限 / 塑性变形；磨损；腐蚀。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "concept_name": {
+        "description": "概念名称，如 '疲劳断裂'",
+        "title": "Concept Name",
+        "type": "string"
+      },
+      "parent_concept": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "上位概念，如 '断裂'",
+        "title": "Parent Concept"
+      },
+      "aliases": {
+        "description": "别名列表",
+        "items": {
+          "type": "string"
+        },
+        "title": "Aliases",
+        "type": "array"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "concept_name"
+    ],
+    "title": "FailureModeConcept",
+    "type": "object"
+  },
+  "FractographicFeatureConcept": {
+    "additionalProperties": false,
+    "description": "断口特征概念树（§5.2）。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "concept_name": {
+        "description": "概念名称，如 '海滩花样'/'韧窝形貌'/'疲劳条带'",
+        "title": "Concept Name",
+        "type": "string"
+      },
+      "aliases": {
+        "description": "别名列表",
+        "items": {
+          "type": "string"
+        },
+        "title": "Aliases",
+        "type": "array"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "concept_name"
+    ],
+    "title": "FractographicFeatureConcept",
+    "type": "object"
+  },
+  "MetallurgicalDefectConcept": {
+    "additionalProperties": false,
+    "description": "冶金缺陷概念树（§5.3）。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "concept_name": {
+        "description": "概念名称，如 '夹杂'/'气孔'/'疏松'/'脱碳'",
+        "title": "Concept Name",
+        "type": "string"
+      },
+      "aliases": {
+        "description": "别名列表",
+        "items": {
+          "type": "string"
+        },
+        "title": "Aliases",
+        "type": "array"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "concept_name"
+    ],
+    "title": "MetallurgicalDefectConcept",
+    "type": "object"
+  },
+  "RootCauseConcept": {
+    "additionalProperties": false,
+    "description": "根因分类概念树（§5.4）。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "concept_name": {
+        "description": "概念名称，如 '外部过载'/'材料缺陷'/'设计不足'",
+        "title": "Concept Name",
+        "type": "string"
+      },
+      "parent_concept": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "上位概念",
+        "title": "Parent Concept"
+      },
+      "aliases": {
+        "description": "别名列表",
+        "items": {
+          "type": "string"
+        },
+        "title": "Aliases",
+        "type": "array"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "concept_name"
+    ],
+    "title": "RootCauseConcept",
+    "type": "object"
+  },
+  "ActionTypeConcept": {
+    "additionalProperties": false,
+    "description": "对策类型概念树（§5.5）。",
+    "properties": {
+      "node_id": {
+        "description": "全局唯一 ID",
+        "format": "uuid",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "business_key": {
+        "description": "业务键，用于幂等合并",
+        "title": "Business Key",
+        "type": "string"
+      },
+      "supporting_chunks": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Supporting Chunks",
+        "type": "array"
+      },
+      "source_doc_id": {
+        "title": "Source Doc Id",
+        "type": "string"
+      },
+      "source_section": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Source Section",
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "extraction_version": {
+        "title": "Extraction Version",
+        "type": "string"
+      },
+      "schema_version": {
+        "default": "v0.1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "review_status": {
+        "default": "auto_committed",
+        "enum": [
+          "auto_committed",
+          "pending_review",
+          "in_review",
+          "approved",
+          "rejected",
+          "modified",
+          "on_hold",
+          "committed"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary"
+      },
+      "owner_id": {
+        "title": "Owner Id",
+        "type": "string"
+      },
+      "sensitivity": {
+        "default": "restricted",
+        "enum": [
+          "public",
+          "restricted",
+          "confidential"
+        ],
+        "title": "Sensitivity",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "concept_name": {
+        "description": "概念名称，如 '100%全检'/'工艺改进'/'模具更换'",
+        "title": "Concept Name",
+        "type": "string"
+      },
+      "aliases": {
+        "description": "别名列表",
+        "items": {
+          "type": "string"
+        },
+        "title": "Aliases",
+        "type": "array"
+      }
+    },
+    "required": [
+      "business_key",
+      "source_doc_id",
+      "confidence",
+      "extraction_version",
+      "owner_id",
+      "created_at",
+      "updated_at",
+      "concept_name"
+    ],
+    "title": "ActionTypeConcept",
+    "type": "object"
+  }
+}
