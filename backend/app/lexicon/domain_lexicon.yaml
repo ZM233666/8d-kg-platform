@@ -70,43 +70,44 @@ chapter_routing:
     - "故障现象"
     - "故障清单"
     - "Problem Description"
-    - "D2"
   containment:
     - "临时措施"
     - "应急措施"
+    - "隔离措施"
     - "Containment"
-    - "D3"
   root_cause:
     - "根本原因"
     - "根因分析"
     - "原因分析"
     - "Root Cause"
-    - "D4"
   corrective_action:
     - "纠正措施"
     - "永久措施"
+    - "改进措施"
     - "Corrective Action"
-    - "D5"
-    - "D6"
   preventive_action:
     - "预防措施"
+    - "防护措施"
     - "Preventive Action"
-    - "D7"
   verification:
     - "验证"
     - "效果确认"
+    - "效果验证"
     - "Verification"
-    - "D8"
   closure:
     - "结案"
     - "关闭"
+    - "团队表彰"
     - "Closure"
   metadata:
+    - "项目信息"
     - "项目简介"
     - "变更记录"
     - "团队介绍"
   background:
     - "背景"
+    - "产品背景"
+    - "问题背景"
     - "结构说明"
     - "功能介绍"
 
@@ -144,3 +145,33 @@ concept_seeds:
     - "模具更换"
     - "供应商整改"
     - "设计变更"
+
+chapter_role_mapping:
+  # ChunkRole 来自 SCHEMA.md，9 类章节 → 7 类 role
+  metadata: metadata
+  background: background
+  defect: evidence
+  root_cause: hypothesis
+  containment: action
+  corrective_action: action
+  preventive_action: action
+  verification: conclusion
+  closure: conclusion
+
+table_patterns:
+  # 5 类预定义表，required_headers 全部命中（子串匹配，大小写不敏感）才归类
+  project_info:
+    required_headers: ["项目", "客户"]
+    optional_headers: ["车型", "供应商", "报告编号"]
+  team:
+    required_headers: ["姓名", "角色"]
+    optional_headers: ["部门", "联系方式"]
+  defect_list:
+    required_headers: ["序号", "故障描述"]
+    optional_headers: ["位置", "里程", "首次发生"]
+  measurement:
+    required_headers: ["项目", "实测值"]
+    optional_headers: ["目标值", "上限", "下限", "单位", "判定"]
+  change_log:
+    required_headers: ["版本", "日期"]
+    optional_headers: ["变更说明", "作者"]
