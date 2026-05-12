@@ -78,7 +78,7 @@ async def health(response: Response) -> dict[str, str]:
     async def _with_timeout(coro, name):
         try:
             return await asyncio.wait_for(coro, timeout=2.0)
-        except BaseException as e:
+        except (Exception, asyncio.CancelledError, asyncio.TimeoutError) as e:
             # 捕获一切：TimeoutError / CancelledError / 业务异常
             logger.warning(f"health_{name}_failed", error=str(e))
             return f"fail:{e}"
