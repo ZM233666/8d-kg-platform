@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api.v1.routes_health import router as health_router
+from app.api.v1.health import router as health_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import get_logger, setup_logging
@@ -122,7 +122,7 @@ app.add_middleware(TraceIdMiddleware)
 register_exception_handlers(app)
 
 # --- 路由 ---
-app.include_router(health_router, tags=["Health"])
+app.include_router(health_router, prefix="/api/v1")
 
 
 # -------------------------------------------------------------------
