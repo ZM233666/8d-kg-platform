@@ -84,12 +84,10 @@ async def download_to_tempfile(minio_url: str) -> Path:
 
     tmp = NamedTemporaryFile(delete=False, suffix=Path(key).suffix)
     tmp_path = Path(tmp.name)
+    tmp.close()  # fget_object 需要关闭的 fd
 
     def _download():
-        try:
-            client.get_object(bucket, key, tmp)
-        finally:
-            tmp.close()
+        client.fget_object(bucket, key, str(tmp_path))
 
     await asyncio.to_thread(_download)
     logger.debug("minio_download", bucket=bucket, key=key, tmp=tmp_path)

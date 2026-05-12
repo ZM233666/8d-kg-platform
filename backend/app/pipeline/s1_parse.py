@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import structlog
 from docx import Document
@@ -12,6 +13,7 @@ from docx.oxml.ns import qn
 
 from app.pipeline.base import stage
 from app.pipeline.context import PipelineContext
+from app.services.minio_client import download_to_tempfile, parse_minio_url
 
 logger = structlog.get_logger(__name__)
 
@@ -55,11 +57,20 @@ def _tbl_to_dict(table, section_path: list[str], raw_index: int) -> dict:
 @stage("s1_parse")
 async def run(ctx: PipelineContext) -> PipelineContext:
     """从 ctx.minio_key 读取 docx，解析为 raw_text / raw_tables / raw_images。"""
-    if ctx.minio_key.startswith("local://"):
-        docx_path = ctx.minio_key[8:]
+    parsed = urlparse(ctx.minio_key)
+    scheme = parsed.scheme
+
+    if scheme == "local":
+        docx_path = ctx.minio_key[len("local://") :]
         doc = _load_local_docx(docx_path)
+    elif scheme == "minio":
+        tmp_path = await download_to_tempfile(ctx.minio_key)
+        try:
+            doc = _load_local_docx(str(tmp_path))
+        finally:
+            tmp_path.unlink(missing_ok=True)
     else:
-        raise NotImplementedError("MinIO reader 留待 API 层接入")
+        raise ValueError(f"Unsupported minio_key scheme: {scheme}")
 
     section_path: list[str] = []
     raw_tables: list[dict] = []
