@@ -21,7 +21,7 @@ class Document(Base, UUIDPKMixin, TimestampMixin):
     # 文件元数据
     file_name: Mapped[str] = mapped_column(String(512), nullable=False)
     file_size: Mapped[int] = mapped_column(nullable=False)
-    mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
 
     # MinIO 存储

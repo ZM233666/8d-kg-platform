@@ -26,6 +26,12 @@ class Chunk(Base, UUIDPKMixin, TimestampMixin):
 
     # 切分信息
     chunk_index: Mapped[int] = mapped_column(nullable=False)
+    chunk_business_key: Mapped[str] = mapped_column(
+        String(512),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
     chapter_path: Mapped[list[str]] = mapped_column(
         ARRAY(String),
         nullable=False,

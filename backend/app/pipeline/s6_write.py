@@ -8,12 +8,37 @@
 
 from __future__ import annotations
 
-import structlog
+from datetime import datetime, timezone
 
+import structlog
+from sqlalchemy import update
+
+from app.db.postgres import async_session_maker
+from app.models import ExtractionRun
 from app.pipeline.base import stage
 from app.pipeline.context import PipelineContext
+from app.pipeline.writers import write_audit, write_neo4j, write_pg
 
 logger = structlog.get_logger(__name__)
+
+
+async def _update_run_status(
+    run_id,
+    status: str,
+    stats: dict | None = None,
+    error: str | None = None,
+) -> None:
+    """更新 extraction_runs 的状态（在新 session 中）。"""
+    async with async_session_maker() as session:
+        now = datetime.now(timezone.utc)
+        upd = {"status": status, "finished_at": now}
+        if stats is not None:
+            upd["stage_metrics"] = stats
+        if error is not None:
+            upd["error_detail"] = {"error": error}
+        stmt = update(ExtractionRun).where(ExtractionRun.id == run_id).values(**upd)
+        await session.execute(stmt)
+        await session.commit()
 
 
 @stage("s6_write")
@@ -21,19 +46,39 @@ async def run(ctx: PipelineContext) -> PipelineContext:
     if ctx.extraction_result is None:
         raise ValueError("s6_write requires ctx.extraction_result, got None")
 
-    # TODO: 批 5D 补 PG 写入（chunks 批量插入 + status 更新 + extraction_run 完成）
-    # TODO: 批 5D 补 Neo4j 写入（遍历 ExtractionResult 各类，
-    #        调用 Neo4jClient.merge_node / merge_relationship）
-    # 当前框架仅打 log 占位，便于跑通端到端骨架。
-
     er = ctx.extraction_result
-    logger.info(
-        "s6_write.placeholder",
-        document_id=str(ctx.document_id),
-        report_id=er.report_id,
-        chunks=len(er.chunks),
-        defects=len(er.defect_occurrences),
-        root_causes=len(er.root_causes),
-        actions=len(er.actions),
+
+    # 1. 写 PG（documents + chunks + extraction_run）
+    pg_result = await write_pg(ctx)
+    ctx.extraction_run_id = pg_result["extraction_run_id"]
+    effective_document_id = pg_result["document_id"]
+
+    # 2. 写 Neo4j；失败则更新 extraction_run 为 failed 后向上抛
+    try:
+        neo4j_result = await write_neo4j(
+            ctx,
+            effective_document_id=effective_document_id,
+            extraction_run_id=ctx.extraction_run_id,
+        )
+    except Exception as e:
+        await _update_run_status(ctx.extraction_run_id, "failed", error=str(e))
+        raise
+
+    # 3. 更新 extraction_run 为 succeeded
+    await _update_run_status(
+        ctx.extraction_run_id,
+        "succeeded",
+        stats=er.stats,
     )
+
+    # 4. 写 audit_log
+    summary = {
+        "pg": pg_result,
+        "neo4j": neo4j_result,
+        "stats": er.stats,
+        "report_id": er.report.business_key if er.report else None,
+    }
+    await write_audit(ctx, effective_document_id, ctx.extraction_run_id, summary)
+
+    logger.info("s6_write.done", **summary)
     return ctx
