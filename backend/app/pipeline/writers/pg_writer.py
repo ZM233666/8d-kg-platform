@@ -48,9 +48,11 @@ async def write_pg(ctx: PipelineContext) -> dict:
         sha256 = _compute_sha256(raw_key) or f"mock-sha-{ctx.document_id}"
         mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     else:
+        # minio:// URL: use a stable hash of the object key for deduplication
+        # (computing real SHA256 would require re-downloading from MinIO)
         file_name = raw_key.split("/")[-1]
         file_size = 0
-        sha256 = f"unknown-{ctx.document_id}"
+        sha256 = hashlib.sha256(raw_key.encode()).hexdigest()
         mime_type = "application/octet-stream"
 
     # --- UPSERT documents（按 sha256 去重）---
@@ -58,7 +60,6 @@ async def write_pg(ctx: PipelineContext) -> dict:
         doc_stmt = (
             pg_insert(Document)
             .values(
-                id=ctx.document_id,
                 file_name=file_name,
                 file_size=file_size,
                 mime_type=mime_type,

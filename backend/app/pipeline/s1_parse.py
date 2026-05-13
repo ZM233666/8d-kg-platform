@@ -54,6 +54,37 @@ def _tbl_to_dict(table, section_path: list[str], raw_index: int) -> dict:
     return {"section_path": section_path.copy(), "headers": hdr, "rows": rows, "raw_index": raw_index}
 
 
+_REPORT_ID_HEADER_KEYS = ("项目编号", "报告编号", "Report ID", "report_id")
+
+
+def _extract_report_id_from_tables(raw_tables: list[dict]) -> str | None:
+    """扫 raw_tables 第一个含『项目编号/报告编号』表头的表，取第一行该列值。
+
+    注意：_tbl_to_dict 返回 rows=[data_row_dict, ...]（不含 header 行），
+    而 headers=[col_name, ...]。当 rows 仅含 1 行时，数据行即 rows[0]。
+    """
+    for tbl in raw_tables:
+        headers = tbl.get("headers", [])
+        rows = tbl.get("rows", [])
+        # 找含项目编号/报告编号的列索引
+        col_idx = None
+        for idx, h in enumerate(headers):
+            if any(key in h for key in _REPORT_ID_HEADER_KEYS):
+                col_idx = idx
+                break
+        if col_idx is None:
+            continue
+        # 取第一行数据的该列值
+        if rows:
+            first_row = rows[0]
+            if isinstance(first_row, dict) and col_idx < len(headers):
+                header_key = headers[col_idx]
+                value = str(first_row.get(header_key, "")).strip()
+                if value:
+                    return value
+    return None
+
+
 @stage("s1_parse")
 async def run(ctx: PipelineContext) -> PipelineContext:
     """从 ctx.minio_key 读取 docx，解析为 raw_text / raw_tables / raw_images。"""
@@ -105,10 +136,18 @@ async def run(ctx: PipelineContext) -> PipelineContext:
     ctx.raw_tables = raw_tables
     ctx.raw_images = []
 
+    # --- 提取 report_id（如果调用方没传 hint）---
+    if not ctx.report_id_hint:
+        extracted_id = _extract_report_id_from_tables(ctx.raw_tables)
+        if extracted_id:
+            ctx.report_id_hint = extracted_id
+            logger.info("s1_parse.report_id_extracted", report_id=extracted_id)
+
     logger.info(
         "s1_parse.done",
         text_len=len(ctx.raw_text),
         tables=len(ctx.raw_tables),
         images=len(ctx.raw_images),
+        report_id_hint=ctx.report_id_hint,
     )
     return ctx

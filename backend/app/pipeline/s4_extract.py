@@ -62,6 +62,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
     now = datetime.now(timezone.utc)
 
     total_usage_tokens = 0
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
 
     # 1. Defect（mock 无视 chunks 是否为空，固定返回样本）
     client_defect = MockLLMClient()
@@ -75,6 +77,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         response_model=list[DefectOccurrence],
     )
     total_usage_tokens += u.total_tokens
+    total_prompt_tokens += u.prompt_tokens
+    total_completion_tokens += u.completion_tokens
 
     # 2. RCA
     client_rca = MockLLMClient()
@@ -88,6 +92,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         response_model=RootCauseAnalysisOutput,
     )
     total_usage_tokens += u.total_tokens
+    total_prompt_tokens += u.prompt_tokens
+    total_completion_tokens += u.completion_tokens
 
     # 3. Containment / 4. Corrective / 5. Preventive Action
     actions: list[ActionEvent] = []
@@ -109,6 +115,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         )
         actions.extend(acts)
         total_usage_tokens += u.total_tokens
+        total_prompt_tokens += u.prompt_tokens
+        total_completion_tokens += u.completion_tokens
 
     # 6. Verification
     client_v = MockLLMClient()
@@ -122,6 +130,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         response_model=list[VerificationEvent],
     )
     total_usage_tokens += u.total_tokens
+    total_prompt_tokens += u.prompt_tokens
+    total_completion_tokens += u.completion_tokens
 
     # 7. Closure（单条，不是 list）
     client_c = MockLLMClient()
@@ -135,6 +145,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         response_model=ClosureEvent,
     )
     total_usage_tokens += u.total_tokens
+    total_prompt_tokens += u.prompt_tokens
+    total_completion_tokens += u.completion_tokens
 
     # 8. RiskAssessment（mock 固定返回样本）
     client_r = MockLLMClient()
@@ -144,6 +156,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         response_model=list[RiskAssessment],
     )
     total_usage_tokens += u.total_tokens
+    total_prompt_tokens += u.prompt_tokens
+    total_completion_tokens += u.completion_tokens
 
     # 9. 构造最小 EightDReport（mock，从 hint 拿 report_id）
     report = EightDReport(
@@ -177,7 +191,12 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         root_causes=rca_out.root_causes,
         risk_assessments=risks,
         chunks=ctx.chunks,
-        stats={"llm_total_tokens": total_usage_tokens, "llm_calls": 8},
+        stats={
+            "llm_total_tokens": total_usage_tokens,
+            "llm_prompt_tokens": total_prompt_tokens,
+            "llm_completion_tokens": total_completion_tokens,
+            "llm_calls": 8,
+        },
     )
 
     logger.info(

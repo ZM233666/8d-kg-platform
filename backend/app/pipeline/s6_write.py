@@ -31,9 +31,13 @@ async def _update_run_status(
     """更新 extraction_runs 的状态（在新 session 中）。"""
     async with async_session_maker() as session:
         now = datetime.now(timezone.utc)
-        upd = {"status": status, "finished_at": now}
-        if stats is not None:
+        upd: dict = {"status": status, "finished_at": now}
+        if stats:
             upd["stage_metrics"] = stats
+            if "llm_prompt_tokens" in stats:
+                upd["token_input"] = stats["llm_prompt_tokens"]
+            if "llm_completion_tokens" in stats:
+                upd["token_output"] = stats["llm_completion_tokens"]
         if error is not None:
             upd["error_detail"] = {"error": error}
         stmt = update(ExtractionRun).where(ExtractionRun.id == run_id).values(**upd)
