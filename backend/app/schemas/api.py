@@ -53,3 +53,26 @@ class ExtractionTriggerResponse(BaseModel):
     document_id: UUID
     status: str
     message: str = "extraction completed synchronously (Celery integration deferred to batch 6C)"
+
+
+class SubgraphNode(BaseModel):
+    business_key: str | None
+    labels: list[str]
+    properties: dict
+
+
+class SubgraphRelationship(BaseModel):
+    type: str
+    start_bk: str | None
+    start_label: str | None
+    end_bk: str | None
+    end_label: str | None
+    properties: dict
+
+
+class SubgraphResponse(BaseModel):
+    center: dict  # {"business_key": ..., "label": ...}
+    depth: int
+    nodes: list[SubgraphNode]
+    relationships: list[SubgraphRelationship]
+    stats: dict  # {"node_count": int, "relationship_count": int}
