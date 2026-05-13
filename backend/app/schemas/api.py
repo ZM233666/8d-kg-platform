@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class DocumentResponse(BaseModel):
     id: UUID
-    filename: str
+    file_name: str
     file_size: int
     mime_type: str
     sha256: str

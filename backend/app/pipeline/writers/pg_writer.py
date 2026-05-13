@@ -117,14 +117,8 @@ async def write_pg(ctx: PipelineContext) -> dict:
             )
 
         if chunk_rows:
-            chunks_stmt = (
-                pg_insert(Chunk)
-                .values(chunk_rows)
-                .returning(Chunk.id)
-            )
-            chunks_stmt = chunks_stmt.on_conflict_do_nothing(
-                index_elements=["chunk_business_key"]
-            )
+            chunks_stmt = pg_insert(Chunk).values(chunk_rows)
+            chunks_stmt = chunks_stmt.on_conflict_do_nothing()
             await session.execute(chunks_stmt)
 
         await session.commit()
