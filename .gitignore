@@ -38,3 +38,8 @@ tmp/
 # 数据 / 导出
 data/
 exports/
+
+*.bak
+*.bak2
+*.bak3
+*.bak4
