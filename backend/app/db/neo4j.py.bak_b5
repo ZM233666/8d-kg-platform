@@ -1,6 +1,5 @@
-"""Neo4j async driver（按 event loop 缓存）。"""
+"""Neo4j async driver（neo4j Python driver）。"""
 
-import asyncio
 from neo4j import AsyncGraphDatabase, AsyncDriver
 
 from app.core.config import settings
@@ -8,32 +7,27 @@ from app.core.logging import get_logger
 
 log = get_logger(__name__)
 
-_drivers: dict[int, AsyncDriver] = {}
+_neo4j_driver: AsyncDriver | None = None
 
 
 def get_neo4j_driver() -> AsyncDriver:
-    """获取当前 event loop 对应的 Neo4j driver。"""
-    loop = asyncio.get_running_loop()
-    key = id(loop)
-
-    if key not in _drivers:
-        _drivers[key] = AsyncGraphDatabase.driver(
+    """获取全局 Neo4j async driver（延迟初始化）。"""
+    global _neo4j_driver
+    if _neo4j_driver is None:
+        _neo4j_driver = AsyncGraphDatabase.driver(
             settings.neo4j_uri,
             auth=(settings.neo4j_user, settings.neo4j_password),
             max_connection_lifetime=3600,
         )
-
-    return _drivers[key]
+    return _neo4j_driver
 
 
 async def close_neo4j_driver() -> None:
-    """关闭全部 driver。"""
-    global _drivers
-
-    for driver in _drivers.values():
-        await driver.close()
-
-    _drivers = {}
+    """关闭 driver。"""
+    global _neo4j_driver
+    if _neo4j_driver is not None:
+        await _neo4j_driver.close()
+        _neo4j_driver = None
 
 
 async def ping_neo4j() -> bool:
