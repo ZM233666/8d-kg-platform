@@ -72,17 +72,18 @@ def _node_props(node) -> dict:
 
 
 def _chunk_props(c: ChunkSchema) -> dict:
-    """Chunk 节点的 properties（截断 chunk_text 到前 500 字符避免节点过大）。"""
-    text = c.chunk_text or ""
+    """Chunk 节点的 properties（截断 text 到前 500 字符避免节点过大）。"""
+    text = c.text or ""
     text_snippet = text[:500] if len(text) > 500 else text
     props = {
-        "document_id": str(c.document_id),
+        "report_id": c.report_id,
         "section_path": c.section_path or [],
-        "chunk_index": c.chunk_index,
-        "chunk_text": text_snippet,
+        "para_idx": c.para_idx,
+        "text": text_snippet,
+        "token_count": c.token_count,
     }
-    if c.role:
-        props["role"] = c.role
+    if c.chunk_role:
+        props["chunk_role"] = c.chunk_role
     return props
 
 

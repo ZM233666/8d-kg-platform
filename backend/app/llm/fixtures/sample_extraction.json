@@ -1,227 +1,118 @@
 {
   "_meta": {
-    "description": "v0.1 mock 固定样本，模拟克诺尔 8D 报告抽取产物",
-    "source": "佛山南海弹簧断裂分析报告（脱敏简化）"
+    "description": "v0.2 KGtestV2 mock 抽取样例：EP2002 阀门密封失效（8D 报告 FS-2024-001）",
+    "source": "synthetic"
   },
-  "DefectOccurrence_list": [
-    {
-      "business_key": "FS-2024-001#FS001#2024-09-15",
-      "report_id": "FS-2024-001",
-      "defect_description": "EP2002 阀二级调节器弹簧端部断裂",
-      "defect_location": "靠近端部第二圈",
-      "serial_no": "SN-FS001",
-      "operating_mileage_km": 125000.0,
-      "detection_context": "首次自检",
-      "is_first_occurrence": true,
-      "occurred_at": "2024-09-15T08:30:00+00:00",
-      "supporting_chunks": ["mock-chunk-defect-1"],
-      "source_doc_id": "mock-doc",
-      "source_section": ["问题描述", "故障现象"],
-      "confidence": 0.85,
-      "extraction_version": "v0.1.0",
-      "owner_id": "system",
-      "created_at": "2026-05-11T00:00:00+00:00",
-      "updated_at": "2026-05-11T00:00:00+00:00"
-    }
-  ],
-  "RootCauseAnalysisOutput": {
-    "inspection_events": [
-      {
-        "business_key": "INSP-MOCK-001",
-        "inspection_name": "断口分析",
-        "sample_id": "S-001",
-        "is_third_party": false,
-        "laboratory_name": "克诺尔内部实验室",
-        "conclusion_text": "弹簧端部存在气孔，疲劳源自气孔",
-        "occurred_at": "2024-10-01T00:00:00+00:00",
-        "supporting_chunks": ["mock-chunk-rca-1"],
-        "source_doc_id": "mock-doc",
-        "source_section": ["根本原因分析", "断口分析"],
-        "confidence": 0.85,
-        "extraction_version": "v0.1.0",
-        "owner_id": "system",
-        "created_at": "2026-05-11T00:00:00+00:00",
-        "updated_at": "2026-05-11T00:00:00+00:00"
-      }
-    ],
-    "experiments": [],
-    "measurements": [
-      {
-        "business_key": "MEAS-MOCK-001",
-        "inspection_event_id": "INSP-MOCK-001",
-        "quantity": "硬度 HV10",
-        "target_value": 480.0,
-        "tolerance_upper": 520.0,
-        "tolerance_lower": 440.0,
-        "actual_value": 475.0,
-        "unit": "HV",
-        "judgement": "pass",
-        "sample_id": "S-001",
-        "method_name": "维氏硬度试验",
-        "is_incomplete": false,
-        "supporting_chunks": ["mock-chunk-rca-2"],
-        "source_doc_id": "mock-doc",
-        "source_section": ["根本原因分析", "硬度测试"],
-        "confidence": 0.95,
-        "extraction_version": "v0.1.0",
-        "owner_id": "system",
-        "created_at": "2026-05-11T00:00:00+00:00",
-        "updated_at": "2026-05-11T00:00:00+00:00"
-      }
-    ],
-    "findings": [
-      {
-        "business_key": "FIND-MOCK-001",
-        "finding_text": "断口附近发现气孔，符合疲劳起源特征",
-        "polarity": "positive",
-        "evidence_source": "internal_inspection",
-        "evidence_strength": "direct",
-        "referenced_concept": "气孔",
-        "supporting_chunks": ["mock-chunk-rca-1"],
-        "source_doc_id": "mock-doc",
-        "source_section": ["根本原因分析", "断口分析"],
-        "confidence": 0.85,
-        "extraction_version": "v0.1.0",
-        "owner_id": "system",
-        "created_at": "2026-05-11T00:00:00+00:00",
-        "updated_at": "2026-05-11T00:00:00+00:00"
-      }
-    ],
-    "root_causes": [
-      {
-        "business_key": "RC-MOCK-001",
-        "cause_text": "塑料活塞销存在气孔，强度变弱导致疲劳断裂",
-        "cause_category": "材料缺陷",
-        "is_root": true,
-        "is_symptom": false,
-        "is_confirmed": false,
-        "causal_narrative": "塑料活塞销存在气孔→强度变弱→弹簧断裂",
-        "chain_id": null,
-        "supporting_chunks": ["mock-chunk-rca-1", "mock-chunk-rca-2"],
-        "source_doc_id": "mock-doc",
-        "source_section": ["根本原因分析", "根因总结"],
-        "confidence": 0.85,
-        "extraction_version": "v0.1.0",
-        "owner_id": "system",
-        "created_at": "2026-05-11T00:00:00+00:00",
-        "updated_at": "2026-05-11T00:00:00+00:00"
-      }
-    ],
-    "causal_narrative": "塑料活塞销存在气孔→强度变弱→弹簧断裂"
+  "report": {
+    "business_key": "FS-2024-001",
+    "report_no": "FS-2024-001",
+    "issue_title": "EP2002 阀门出厂测试密封面泄漏",
+    "report_status": "进行中",
+    "d2_problem_statement": "EP2002 控制阀在客户出厂验收测试中，密封面发现微量渗油，泄漏速率超出 ISO 5208 Class A 标准。",
+    "d4_root_cause_summary": "O 型圈材质硬度未达图纸要求（HS 75±5 实测 HS 62），来料检验缺失硬度项。",
+    "d5_permanent_correction_summary": "更换为 Viton 材质 O 型圈，硬度 HS 75，并出具材质证明。",
+    "d7_prevention_summary": "供应商来料 100% 硬度检验；密封件材质纳入 PPAP 强制项。",
+    "owner_name": "张工",
+    "owner_role": "质量主管",
+    "supporting_chunks": []
   },
-  "ActionEvent_containment_list": [
-    {
-      "business_key": "ACT-CONT-MOCK-001",
-      "action_type": "containment",
-      "action_description": "对在用车辆全部 EP2002 阀进行 100% 检查",
-      "responsible_party": "KB",
-      "responsible_person": "张三",
-      "deadline": "2024-10-30T00:00:00+00:00",
-      "status": "in_progress",
-      "verification_result": null,
-      "occurred_at": "2024-09-20T00:00:00+00:00",
-      "supporting_chunks": ["mock-chunk-cont-1"],
-      "source_doc_id": "mock-doc",
-      "source_section": ["临时措施", "D3"],
-      "confidence": 0.85,
-      "extraction_version": "v0.1.0",
-      "owner_id": "system",
-      "created_at": "2026-05-11T00:00:00+00:00",
-      "updated_at": "2026-05-11T00:00:00+00:00"
-    }
-  ],
-  "ActionEvent_corrective_list": [
-    {
-      "business_key": "ACT-CORR-MOCK-001",
-      "action_type": "corrective",
-      "action_description": "更换塑料活塞销供应商，启用 B 厂金属销方案",
-      "responsible_party": "Supplier",
-      "responsible_person": "李四",
-      "deadline": "2025-03-01T00:00:00+00:00",
-      "status": "planned",
-      "verification_result": null,
-      "occurred_at": null,
-      "supporting_chunks": ["mock-chunk-corr-1"],
-      "source_doc_id": "mock-doc",
-      "source_section": ["纠正措施", "D5"],
-      "confidence": 0.85,
-      "extraction_version": "v0.1.0",
-      "owner_id": "system",
-      "created_at": "2026-05-11T00:00:00+00:00",
-      "updated_at": "2026-05-11T00:00:00+00:00"
-    }
-  ],
-  "ActionEvent_preventive_list": [
-    {
-      "business_key": "ACT-PREV-MOCK-001",
-      "action_type": "preventive",
-      "action_description": "建立活塞销来料 100% X-ray 检测工序",
-      "responsible_party": "KB",
-      "responsible_person": "王五",
-      "deadline": "2025-06-01T00:00:00+00:00",
-      "status": "planned",
-      "verification_result": null,
-      "occurred_at": null,
-      "supporting_chunks": ["mock-chunk-prev-1"],
-      "source_doc_id": "mock-doc",
-      "source_section": ["预防措施", "D7"],
-      "confidence": 0.85,
-      "extraction_version": "v0.1.0",
-      "owner_id": "system",
-      "created_at": "2026-05-11T00:00:00+00:00",
-      "updated_at": "2026-05-11T00:00:00+00:00"
-    }
-  ],
-  "VerificationEvent_list": [
-    {
-      "business_key": "VER-MOCK-001",
-      "verification_method": "对比试验",
-      "verification_result": "passed",
-      "verified_action_id": "00000000-0000-0000-0000-000000000001",
-      "occurred_at": "2025-04-15T00:00:00+00:00",
-      "supporting_chunks": ["mock-chunk-ver-1"],
-      "source_doc_id": "mock-doc",
-      "source_section": ["验证", "D8"],
-      "confidence": 0.85,
-      "extraction_version": "v0.1.0",
-      "owner_id": "system",
-      "created_at": "2026-05-11T00:00:00+00:00",
-      "updated_at": "2026-05-11T00:00:00+00:00"
-    }
-  ],
-  "ClosureEvent": {
-    "business_key": "CLOS-MOCK-001",
-    "closure_decision": "根因未完全确认，转入持续监控",
-    "final_meeting_date": "2025-05-01T00:00:00+00:00",
-    "attendees": ["张三", "李四", "王五"],
-    "occurred_at": "2025-05-01T00:00:00+00:00",
-    "supporting_chunks": ["mock-chunk-clos-1"],
-    "source_doc_id": "mock-doc",
-    "source_section": ["结案"],
-    "confidence": 0.85,
-    "extraction_version": "v0.1.0",
-    "owner_id": "system",
-    "created_at": "2026-05-11T00:00:00+00:00",
-    "updated_at": "2026-05-11T00:00:00+00:00"
+  "event": {
+    "business_key": "EVT-FS-2024-001",
+    "event_id": "EVT-FS-2024-001",
+    "event_code": "QA-2024-0410",
+    "event_type": "出厂测试故障",
+    "severity": "高",
+    "symptom": "阀门密封面渗油，泄漏速率 > ISO 5208 Class A",
+    "event_time": "2026-04-10",
+    "status": "处理中",
+    "reporter_name": "客户QA-王经理",
+    "supporting_chunks": []
   },
-  "RiskAssessment_list": [
+  "failure_modes": [
     {
-      "business_key": "FS-2024-001#在用车辆全队",
-      "scope": "深圳14号线 AW3 工况",
-      "severity_level": "维护等级",
-      "safety_impact": "minor",
-      "operational_impact": "moderate",
-      "affects_normal_operation": false,
-      "risk_description": "弹簧断裂可能引起阀泄漏，制动自检可识别",
-      "detection_capability": "制动自检时能监测",
-      "supporting_chunks": ["mock-chunk-risk-1"],
-      "source_doc_id": "mock-doc",
-      "source_section": ["风险分析"],
-      "confidence": 0.85,
-      "extraction_version": "v0.1.0",
-      "owner_id": "system",
-      "created_at": "2026-05-11T00:00:00+00:00",
-      "updated_at": "2026-05-11T00:00:00+00:00"
+      "business_key": "MD-OR-SEAL-FAIL",
+      "mode_code": "MD-OR-SEAL-FAIL",
+      "mode_name": "O 型圈密封失效",
+      "category": "机械",
+      "supporting_chunks": []
     }
-  ]
+  ],
+  "causes": [
+    {
+      "business_key": "CAU-FS-2024-001-1",
+      "cause_id": "CAU-FS-2024-001-1",
+      "title": "O 型圈硬度低于图纸要求（来料未检硬度）",
+      "cause_type": "根本原因",
+      "is_verified": true,
+      "evidence": "硬度检测报告 H-2026-0410：实测 HS 62 vs 图纸 HS 75±5",
+      "supporting_chunks": []
+    }
+  ],
+  "actions": [
+    {
+      "business_key": "ACT-FS-2024-001-1",
+      "action_id": "ACT-FS-2024-001-1",
+      "title": "更换为 Viton 材质 O 型圈",
+      "action_type": "纠正D5",
+      "status": "完成",
+      "owner_name": "李工",
+      "due_date": "2026-04-20",
+      "supporting_chunks": []
+    },
+    {
+      "business_key": "ACT-FS-2024-001-2",
+      "action_id": "ACT-FS-2024-001-2",
+      "title": "供应商来料 100% 硬度检验，纳入 PPAP",
+      "action_type": "预防D7",
+      "status": "进行中",
+      "owner_name": "王工",
+      "due_date": "2026-05-30",
+      "supporting_chunks": []
+    },
+    {
+      "business_key": "ACT-FS-2024-001-3",
+      "action_id": "ACT-FS-2024-001-3",
+      "title": "临时隔离同批次 50 套阀门，加严测试",
+      "action_type": "临时D3",
+      "status": "完成",
+      "owner_name": "赵工",
+      "due_date": "2026-04-12",
+      "supporting_chunks": []
+    }
+  ],
+  "product_instances": [],
+  "part_serials": [
+    {
+      "business_key": "OR-001::B2024-05",
+      "part_key": "OR-001::B2024-05",
+      "serial_number": "OR-001",
+      "batch_no": "B2024-05",
+      "status": "已替换",
+      "supplier_name": "苏州某密封件供应商",
+      "supporting_chunks": []
+    }
+  ],
+  "organizations": [
+    {
+      "business_key": "ORG-SUZ-SEAL",
+      "org_code": "ORG-SUZ-SEAL",
+      "org_name": "苏州某密封件供应商",
+      "org_type": "供应商",
+      "supporting_chunks": []
+    }
+  ],
+  "relationships": [
+    {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "EightDReport", "to_key": "FS-2024-001", "rel_type": "HAS_8D_REPORT", "properties": {}},
+    {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "CauseItem", "to_key": "CAU-FS-2024-001-1", "rel_type": "ROOT_CAUSE", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "ActionItem", "to_key": "ACT-FS-2024-001-1", "rel_type": "CORRECTIVE_ACTION", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "ActionItem", "to_key": "ACT-FS-2024-001-2", "rel_type": "PREVENTIVE_ACTION", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "ActionItem", "to_key": "ACT-FS-2024-001-3", "rel_type": "CORRECTIVE_ACTION", "properties": {}},
+    {"from_label": "CauseItem", "from_key": "CAU-FS-2024-001-1", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
+    {"from_label": "ActionItem", "from_key": "ACT-FS-2024-001-1", "to_label": "CauseItem", "to_key": "CAU-FS-2024-001-1", "rel_type": "VERIFIES_CAUSE", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "RESPONSIBLE_ORG", "properties": {}},
+    {"from_label": "PartSerial", "from_key": "OR-001::B2024-05", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "SUPPLIED_BY", "properties": {}}
+  ],
+  "chunks": [],
+  "stats": {}
 }

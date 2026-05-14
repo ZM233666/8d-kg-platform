@@ -1,7 +1,7 @@
-"""固定样本 Mock LLM 客户端。
+"""固定样本 Mock LLM 客户端（v0.2）。
 
-行为：忽略输入 prompt，按 response_model 名分发返回 fixtures/sample_extraction.json 对应字段。
-所有调用记 fake usage（tokens=200/400/600，cost=0）。
+v0.2 简化：MockLLMClient.complete_json 总是返回整个 ExtractionResult（从 sample_extraction.json 加载）。
+不再按 response_model 名分发到不同 key——v0.2 s4_extract 只调一次 LLM。
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import TypeVar, get_args, get_origin
+from typing import TypeVar
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
@@ -27,26 +27,10 @@ def _load_fixture() -> dict:
     return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
 
-def _resolve_fixture_key(response_model: type, action_type_hint: str | None = None) -> str:
-    """根据 response_model 类型和可选 hint 解析 fixture key。"""
-    origin = get_origin(response_model)
-    if origin is list:
-        inner = get_args(response_model)[0]
-        base_name = inner.__name__
-        if base_name == "ActionEvent" and action_type_hint:
-            return f"ActionEvent_{action_type_hint}_list"
-        return f"{base_name}_list"
-    return response_model.__name__
-
-
 class MockLLMClient(LLMClient):
-    """v0.1 固定样本 mock。
+    """v0.2 固定样本 mock。返回整个 ExtractionResult，忽略 prompt 内容。"""
 
-    构造时可传 action_type_hint（containment/corrective/preventive）覆盖 ActionEvent 列表分发。
-    """
-
-    def __init__(self, action_type_hint: str | None = None):
-        self._action_type_hint = action_type_hint
+    def __init__(self):
         self._calls = 0
 
     async def complete_json(
@@ -60,25 +44,27 @@ class MockLLMClient(LLMClient):
     ) -> tuple[T, LLMUsage]:
         self._calls += 1
         fixture = _load_fixture()
-        key = _resolve_fixture_key(response_model, self._action_type_hint)
-        if key not in fixture:
+
+        # v0.2 mock 只支持 ExtractionResult；其他 response_model 视为未实现
+        if response_model.__name__ != "ExtractionResult":
             raise LLMError(
-                f"Mock fixture missing key '{key}' for response_model {response_model}"
+                f"MockLLMClient v0.2 only supports response_model=ExtractionResult, got {response_model.__name__}"
             )
 
-        raw = fixture[key]
+        # 取 fixture 顶层（除 _meta 外的所有键应组成完整 ExtractionResult dict）
+        payload = {k: v for k, v in fixture.items() if not k.startswith("_")}
+
         try:
             adapter = TypeAdapter(response_model)
-            obj = adapter.validate_python(raw)
+            obj = adapter.validate_python(payload)
         except ValidationError as e:
-            raise LLMError(f"Mock fixture validation failed for {key}: {e}") from e
+            raise LLMError(f"Mock fixture validation failed for ExtractionResult: {e}") from e
 
         usage = LLMUsage(
-            prompt_tokens=200,
-            completion_tokens=400,
-            total_tokens=600,
-            model="mock-v0.1",
+            prompt_tokens=1600,
+            completion_tokens=3200,
+            total_tokens=4800,
             cost_estimate=0.0,
-            metadata={"fixture_key": key, "call_index": self._calls},
+            metadata={"model": "mock-v0.2", "call_index": self._calls},
         )
         return obj, usage

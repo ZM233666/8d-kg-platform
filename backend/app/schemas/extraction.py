@@ -17,12 +17,7 @@ from app.schemas.entity import (
 
 
 class RelationTriple(BaseModel):
-    """显式三元组：(from_label, from_key) -[rel_type]-> (to_label, to_key).
-
-    - from_label / to_label：必须在 ALLOWED_LABELS 中。
-    - from_key / to_key：对应实体的 business_key。
-    - rel_type：必须在 ALLOWED_REL_TYPES 中（UPPER_SNAKE_CASE）。
-    """
+    """显式三元组：(from_label, from_key) -[rel_type]-> (to_label, to_key)。"""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -39,25 +34,24 @@ class ExtractionResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    # 主线（每份报告 1 个）
     report: EightDReport | None = Field(None, description="8D 报告主体")
     event: ProductEvent | None = Field(None, description="源产品事件")
 
-    # 必抽列表（≥1）
     failure_modes: list[FailureMode] = Field(default_factory=list)
     causes: list[CauseItem] = Field(default_factory=list)
     actions: list[ActionItem] = Field(default_factory=list)
 
-    # 可选实体（抽出来才创建）
     product_instances: list[ProductInstance] = Field(default_factory=list)
     part_serials: list[PartSerial] = Field(default_factory=list)
     organizations: list[Organization] = Field(default_factory=list)
 
-    # 显式关系列表（B2 新增）
     relationships: list[RelationTriple] = Field(default_factory=list)
 
-    # 治理（分块由 s2_split 写入，s4_extract 不动）
     chunks: list[Chunk] = Field(default_factory=list)
 
-    # 统计
     stats: dict = Field(default_factory=dict)
+
+    @property
+    def report_id(self) -> str | None:
+        """兼容 v1 ctx.report_id 属性：返回 report.report_no（若无 report 则 None）。"""
+        return self.report.report_no if self.report else None
