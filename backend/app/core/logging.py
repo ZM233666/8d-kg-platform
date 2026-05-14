@@ -44,6 +44,14 @@ def setup_logging() -> None:
     """配置 structlog：JSON 格式输出到 stdout，trace_id 自动注入。"""
     log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
 
+    # 配置 stdlib root logger 输出到 stdout（structlog.stdlib.LoggerFactory 需要）
+    logging.basicConfig(
+        format="%(message)s",
+        stream=sys.stdout,
+        level=log_level,
+        force=True,
+    )
+
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
@@ -64,7 +72,7 @@ def setup_logging() -> None:
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
