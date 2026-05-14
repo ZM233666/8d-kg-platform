@@ -1,110 +1,46 @@
-"""ExtractionResult 容器（SCHEMA.md §11）。"""
+"""v0.2 ExtractionResult 聚合容器。
 
-from uuid import UUID
+LLM 输出 JSON 结构，由 s4_extract 解析为本模型；s6_write 据此写 PG/Neo4j。
+所有 list 默认空，未抽取到的实体不创建节点（可选实体）。
+"""
+from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.entity import (
-    EightDReport,
-    DefectOccurrence,
-    RootCause,
-    ActionEvent,
-    Measurement,
-    Finding,
-    Project,
-    Customer,
-    Operator,
-    Vehicle,
-    Part,
-    Material,
-    Standard,
-    TestMethod,
-    Laboratory,
-    Person,
-    Team,
-    Supplier,
-    Process,
-    Equipment,
-    InspectionEvent,
-    Experiment,
-    VerificationEvent,
-    ClosureEvent,
-    RiskAssessment,
+    ActionItem,
+    CauseItem,
     Chunk,
-)
-from app.schemas.concept import (
-    FailureModeConcept,
-    FractographicFeatureConcept,
-    MetallurgicalDefectConcept,
-    RootCauseConcept,
-    ActionTypeConcept,
+    EightDReport,
+    FailureMode,
+    Organization,
+    PartSerial,
+    ProductEvent,
+    ProductInstance,
 )
 
 
 class ExtractionResult(BaseModel):
-    """单份文档抽取的完整结果（SCHEMA.md §11.1）。
+    """单份 8D 报告的完整抽取结果（v0.2 KGtestV2 精简版）。"""
 
-    由 Pipeline 写入 entity_mirror 与 Neo4j。
-    """
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    doc_id: UUID = Field(..., description="文档 ID")
-    report_id: str = Field(..., description="报告 ID（业务键）")
-    extraction_version: str = Field(..., description="抽取流水线版本")
-    schema_version: str = Field(default="v0.1.0")
+    # 主线（每份报告 1 个）
+    report: EightDReport | None = Field(None, description="8D 报告主体")
+    event: ProductEvent | None = Field(None, description="源产品事件")
 
-    # 实体
-    report: EightDReport | None = None
-    projects: list[Project] = Field(default_factory=list)
-    customers: list[Customer] = Field(default_factory=list)
-    operators: list[Operator] = Field(default_factory=list)
-    vehicles: list[Vehicle] = Field(default_factory=list)
-    parts: list[Part] = Field(default_factory=list)
-    materials: list[Material] = Field(default_factory=list)
-    standards: list[Standard] = Field(default_factory=list)
-    test_methods: list[TestMethod] = Field(default_factory=list)
-    laboratories: list[Laboratory] = Field(default_factory=list)
-    persons: list[Person] = Field(default_factory=list)
-    teams: list[Team] = Field(default_factory=list)
-    suppliers: list[Supplier] = Field(default_factory=list)
-    processes: list[Process] = Field(default_factory=list)
-    equipment: list[Equipment] = Field(default_factory=list)
+    # 必抽列表（≥1）
+    failure_modes: list[FailureMode] = Field(default_factory=list)
+    causes: list[CauseItem] = Field(default_factory=list)
+    actions: list[ActionItem] = Field(default_factory=list)
 
-    # 事件
-    defect_occurrences: list[DefectOccurrence] = Field(default_factory=list)
-    inspection_events: list[InspectionEvent] = Field(default_factory=list)
-    experiments: list[Experiment] = Field(default_factory=list)
-    actions: list[ActionEvent] = Field(default_factory=list)
-    verifications: list[VerificationEvent] = Field(default_factory=list)
-    closure: ClosureEvent | None = None
+    # 可选实体（抽出来才创建）
+    product_instances: list[ProductInstance] = Field(default_factory=list)
+    part_serials: list[PartSerial] = Field(default_factory=list)
+    organizations: list[Organization] = Field(default_factory=list)
 
-    # 辅助
-    measurements: list[Measurement] = Field(default_factory=list)
-    findings: list[Finding] = Field(default_factory=list)
-    root_causes: list[RootCause] = Field(default_factory=list)
-    risk_assessments: list[RiskAssessment] = Field(default_factory=list)
-
-    # Chunk（必含）
+    # 治理（分块由 s2_split 写入，s4_extract 不动）
     chunks: list[Chunk] = Field(default_factory=list)
 
-    # 概念引用（不创建新节点，仅链接已存在的）
-    concept_references: list[dict] = Field(
-        default_factory=list,
-        description="格式 [{node_id, concept_type, concept_name}]",
-    )
-
-    # 抽取统计
+    # 统计（s4_extract 填充：llm_total_tokens / llm_prompt_tokens / llm_completion_tokens / llm_calls）
     stats: dict = Field(default_factory=dict)
-
-
-class RootCauseAnalysisOutput(BaseModel):
-    """根因分析章节专用输出（SCHEMA.md §11.2）。"""
-
-    inspection_events: list[InspectionEvent] = Field(default_factory=list)
-    experiments: list[Experiment] = Field(default_factory=list)
-    measurements: list[Measurement] = Field(default_factory=list)
-    findings: list[Finding] = Field(default_factory=list)
-    root_causes: list[RootCause] = Field(default_factory=list)
-    causal_narrative: str | None = Field(
-        None,
-        description="v0.1 整段因果链文本；v0.2 由人工补边",
-    )

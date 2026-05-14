@@ -4,26 +4,41 @@ from datetime import datetime, timezone
 
 from neo4j import AsyncDriver
 
-ALLOWED_LABELS = {
-    "EightDReport", "Project", "Customer", "Operator", "Part", "Material",
-    "Standard", "TestMethod", "Process", "Equipment",
-    "Vehicle", "Laboratory", "Person", "Team", "Supplier",
-    "DefectOccurrence", "InspectionEvent", "Experiment",
-    "ActionEvent", "VerificationEvent", "ClosureEvent",
-    "Measurement", "Finding", "RootCause", "RiskAssessment", "Chunk",
-    "FailureModeConcept", "FractographicFeatureConcept",
-    "MetallurgicalDefectConcept", "RootCauseConcept", "ActionTypeConcept",
+ALLOWED_LABELS: set[str] = {
+    # v0.2 KGtestV2 业务实体（8 个）
+    "EightDReport",
+    "ProductEvent",
+    "ProductInstance",
+    "PartSerial",
+    "FailureMode",
+    "CauseItem",
+    "ActionItem",
+    "Organization",
+    # 治理
+    "Chunk",
 }
 
-ALLOWED_REL_TYPES = {
-    "BELONGS_TO", "REPORTED_BY", "OPERATED_BY", "DESCRIBES", "INVOLVES_TEAM",
-    "PART_OF", "MADE_OF", "MANUFACTURED_BY",
-    "OCCURS_ON", "INVOLVES", "EXHIBITS",
-    "APPLIES", "PERFORMED_BY", "PRODUCES", "CONCLUDES", "EXAMINES",
-    "TESTS", "ADDRESSES", "EXECUTED_BY",
-    "SUPPORTS", "RULES_OUT", "LEADS_TO",
-    "VERIFIES", "ASSESSES_RISK_OF",
-    "MENTIONED_IN", "MENTIONS",
+ALLOWED_REL_TYPES: set[str] = {
+    # 主线
+    "HAS_8D_REPORT",
+    "RELATED_FAILURE_MODE",
+    "ROOT_CAUSE",
+    "CORRECTIVE_ACTION",
+    "PREVENTIVE_ACTION",
+    "VERIFIES_CAUSE",
+    # 可选
+    "HAPPENED_ON",
+    "RELATED_SERIAL",
+    "AFFECTED_PRODUCT",
+    "AFFECTED_SERIAL",
+    "RESPONSIBLE_ORG",
+    "TARGET_SERIAL",
+    "TARGET_PRODUCT",
+    "INSTALLED_ON",
+    "SUPPLIED_BY",
+    # 治理
+    "MENTIONED_IN",
+    "MENTIONS",
 }
 
 

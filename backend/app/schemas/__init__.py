@@ -1,121 +1,54 @@
-"""Pydantic Schemas — 全部 re-export。"""
+"""schemas 包导出（v0.2 KGtestV2 精简版）。"""
 
-from app.schemas.base import BaseNode, BaseEvent, ReviewStatus, Sensitivity
-
+from app.schemas.api import (
+    DocumentListResponse,
+    DocumentResponse,
+    ExtractionRunResponse,
+    ExtractionTriggerResponse,
+    SubgraphNode,
+    SubgraphRelationship,
+    SubgraphResponse,
+    UploadResponse,
+)
+from app.schemas.base import BaseEvent, BaseNode, ReviewStatus, Sensitivity
 from app.schemas.entity import (
-    # 枚举
-    ClosureStatus,
-    ActionType,
-    ResponsibleParty,
-    ActionStatus,
-    VerificationResult,
-    JudgementResult,
-    Polarity,
-    EvidenceSource,
-    EvidenceStrength,
-    SafetyImpact,
-    OperationalImpact,
-    ChunkRole,
-    # 核心层 EntityType（§3）
-    EightDReport,
-    Project,
-    Customer,
-    Operator,
-    Part,
-    Material,
-    Standard,
-    TestMethod,
-    Process,
-    Equipment,
-    # 次要层 EntityType（§3）
-    Vehicle,
-    Laboratory,
-    Person,
-    Team,
-    Supplier,
-    # EventType（§4）
-    DefectOccurrence,
-    InspectionEvent,
-    Experiment,
-    ActionEvent,
-    VerificationEvent,
-    ClosureEvent,
-    # 辅助类型（§6）
-    Measurement,
-    Finding,
-    RootCause,
-    RiskAssessment,
+    ActionItem,
+    CauseItem,
     Chunk,
-    LeadsToEdge,
+    EightDReport,
+    FailureMode,
+    Organization,
+    PartSerial,
+    ProductEvent,
+    ProductInstance,
 )
-
-from app.schemas.concept import (
-    FailureModeConcept,
-    FractographicFeatureConcept,
-    MetallurgicalDefectConcept,
-    RootCauseConcept,
-    ActionTypeConcept,
-)
-
-from app.schemas.extraction import ExtractionResult, RootCauseAnalysisOutput
+from app.schemas.extraction import ExtractionResult
 
 __all__ = [
-    # 基类
+    # base
     "BaseNode",
     "BaseEvent",
     "ReviewStatus",
     "Sensitivity",
-    # 枚举
-    "ClosureStatus",
-    "ActionType",
-    "ResponsibleParty",
-    "ActionStatus",
-    "VerificationResult",
-    "JudgementResult",
-    "Polarity",
-    "EvidenceSource",
-    "EvidenceStrength",
-    "SafetyImpact",
-    "OperationalImpact",
-    "ChunkRole",
-    # 核心层实体
+    # entities (v0.2 KGtestV2 精简版)
     "EightDReport",
-    "Project",
-    "Customer",
-    "Operator",
-    "Part",
-    "Material",
-    "Standard",
-    "TestMethod",
-    "Process",
-    "Equipment",
-    # 次要层实体
-    "Vehicle",
-    "Laboratory",
-    "Person",
-    "Team",
-    "Supplier",
-    # 事件
-    "DefectOccurrence",
-    "InspectionEvent",
-    "Experiment",
-    "ActionEvent",
-    "VerificationEvent",
-    "ClosureEvent",
-    # 辅助
-    "Measurement",
-    "Finding",
-    "RootCause",
-    "RiskAssessment",
+    "ProductEvent",
+    "FailureMode",
+    "CauseItem",
+    "ActionItem",
+    "ProductInstance",
+    "PartSerial",
+    "Organization",
     "Chunk",
-    "LeadsToEdge",
-    # 概念
-    "FailureModeConcept",
-    "FractographicFeatureConcept",
-    "MetallurgicalDefectConcept",
-    "RootCauseConcept",
-    "ActionTypeConcept",
-    # 容器
+    # extraction aggregate
     "ExtractionResult",
-    "RootCauseAnalysisOutput",
+    # api
+    "DocumentResponse",
+    "UploadResponse",
+    "DocumentListResponse",
+    "ExtractionRunResponse",
+    "ExtractionTriggerResponse",
+    "SubgraphNode",
+    "SubgraphRelationship",
+    "SubgraphResponse",
 ]
