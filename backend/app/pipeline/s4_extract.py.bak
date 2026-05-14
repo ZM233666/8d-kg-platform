@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import structlog
 
-from app.llm import get_llm_client
+from app.llm import MockLLMClient
 from app.llm import prompts as P
 from app.pipeline.base import stage
 from app.pipeline.context import PipelineContext
@@ -35,7 +35,7 @@ def _build_user_prompt(ctx: PipelineContext) -> str:
 @stage("s4_extract")
 async def run(ctx: PipelineContext) -> PipelineContext:
     """单次 LLM 调用 → ExtractionResult。"""
-    client = get_llm_client()
+    client = MockLLMClient()
     system_prompt = getattr(P, "EXTRACTION_SYSTEM", "你是 8D 报告抽取助手，输出严格符合 ExtractionResult JSON Schema。")
     user_prompt = _build_user_prompt(ctx)
 

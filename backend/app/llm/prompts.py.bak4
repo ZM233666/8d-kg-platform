@@ -71,7 +71,7 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
   "from_key":   "<源实体 business_key>",
   "to_label":   "<目标实体 Label>",
   "to_key":     "<目标实体 business_key>",
-  "rel_type":   "<必须来自下面白名单>",
+  "rel_type":   "<UPPER_SNAKE_CASE>",
   "properties": {}
 }
 
@@ -81,40 +81,14 @@ Label 取值必须是上面 8 个实体类名之一：
 EightDReport, ProductEvent, FailureMode, CauseItem, ActionItem,
 ProductInstance, PartSerial, Organization
 
-🔒 **rel_type 严格白名单（只能从下面 16 个中选，多一个字符都会被拒绝）**：
+rel_type 推荐白名单（按需选用，宁少勿编造）：
+HAS_8D_REPORT, RELATED_FAILURE_MODE, ROOT_CAUSE, INTERMEDIATE_CAUSE, DIRECT_CAUSE,
+CONTAINMENT_ACTION, CORRECTIVE_ACTION, PREVENTIVE_ACTION,
+VERIFIES_CAUSE, ADDRESSES_FAILURE_MODE,
+RESPONSIBLE_ORG, SUPPLIED_BY, INVOLVES_PRODUCT, INVOLVES_PART,
+REPORTED_BY, OWNED_BY
 
-主线（最常用）：
-  - HAS_8D_REPORT          : ProductEvent -> EightDReport（事件挂报告）
-  - RELATED_FAILURE_MODE   : ProductEvent/CauseItem -> FailureMode（涉及/对应失效模式）
-  - ROOT_CAUSE             : EightDReport -> CauseItem（D4 根因；直接/中间原因也统一用此 rel_type）
-  - CORRECTIVE_ACTION      : EightDReport -> ActionItem（D3 临时/D5 纠正措施都用此）
-  - PREVENTIVE_ACTION      : EightDReport -> ActionItem（D7 预防措施）
-  - VERIFIES_CAUSE         : ActionItem -> CauseItem（措施验证某原因）
-
-实例/产品：
-  - HAPPENED_ON            : ProductEvent -> ProductInstance（事件发生在某实例）
-  - RELATED_SERIAL         : ProductEvent -> PartSerial（事件涉及某零件序列）
-  - AFFECTED_PRODUCT       : EightDReport -> ProductInstance
-  - AFFECTED_SERIAL        : EightDReport -> PartSerial
-  - TARGET_PRODUCT         : ActionItem -> ProductInstance（措施针对的产品）
-  - TARGET_SERIAL          : ActionItem -> PartSerial（措施针对的零件）
-  - INSTALLED_ON           : PartSerial -> ProductInstance（零件装在产品上）
-
-组织/供应：
-  - RESPONSIBLE_ORG        : EightDReport -> Organization（责任部门/客户）
-  - SUPPLIED_BY            : PartSerial -> Organization（供应商）
-
-治理（一般 LLM 不要直接输出，留空即可）：
-  - MENTIONED_IN, MENTIONS
-
-⚠️ **不在上面白名单的 rel_type 一律不要输出**。常见错误对应改法：
-   - "CONTAINMENT_ACTION" / "临时措施" → 用 CORRECTIVE_ACTION
-   - "INTERMEDIATE_CAUSE" / "DIRECT_CAUSE" → 统一用 ROOT_CAUSE（在 CauseItem.cause_type 里区分）
-   - "ADDRESSES_FAILURE_MODE" → 用 RELATED_FAILURE_MODE
-   - "INVOLVES_PRODUCT" / "INVOLVES_PART" → 用 AFFECTED_PRODUCT / AFFECTED_SERIAL
-   - "REPORTED_BY" / "OWNED_BY" → 不要输出此类关系（信息保留在实体的 owner_name/reporter_name 字段里）
-
-================ 完整示例（照此结构输出，字段一字不差，rel_type 全部来自白名单）================
+================ 完整示例（照此结构输出，字段一字不差）================
 {
   "report": {
     "business_key": "FS-2024-001",
@@ -148,9 +122,8 @@ ProductInstance, PartSerial, Organization
     {"business_key": "CAU-FS-2024-001-1", "cause_id": "CAU-FS-2024-001-1", "title": "O 型圈硬度低于图纸要求", "cause_type": "根本原因", "is_verified": true, "evidence": "硬度检测报告 H-2026-0410", "supporting_chunks": []}
   ],
   "actions": [
-    {"business_key": "ACT-FS-2024-001-1", "action_id": "ACT-FS-2024-001-1", "title": "隔离同批次阀门加严测试", "action_type": "临时D3", "status": "完成", "owner_name": "赵工", "due_date": "2026-04-12", "supporting_chunks": []},
-    {"business_key": "ACT-FS-2024-001-2", "action_id": "ACT-FS-2024-001-2", "title": "更换 Viton O 型圈", "action_type": "纠正D5", "status": "完成", "owner_name": "李工", "due_date": "2026-04-20", "supporting_chunks": []},
-    {"business_key": "ACT-FS-2024-001-3", "action_id": "ACT-FS-2024-001-3", "title": "来料 100% 硬度检验", "action_type": "预防D7", "status": "进行中", "owner_name": "王工", "due_date": "2026-05-30", "supporting_chunks": []}
+    {"business_key": "ACT-FS-2024-001-1", "action_id": "ACT-FS-2024-001-1", "title": "更换 Viton O 型圈", "action_type": "纠正D5", "status": "完成", "owner_name": "李工", "due_date": "2026-04-20", "supporting_chunks": []},
+    {"business_key": "ACT-FS-2024-001-2", "action_id": "ACT-FS-2024-001-2", "title": "来料 100% 硬度检验", "action_type": "预防D7", "status": "进行中", "owner_name": "王工", "due_date": "2026-05-30", "supporting_chunks": []}
   ],
   "product_instances": [],
   "part_serials": [
@@ -164,11 +137,9 @@ ProductInstance, PartSerial, Organization
     {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
     {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "CauseItem", "to_key": "CAU-FS-2024-001-1", "rel_type": "ROOT_CAUSE", "properties": {}},
     {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "ActionItem", "to_key": "ACT-FS-2024-001-1", "rel_type": "CORRECTIVE_ACTION", "properties": {}},
-    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "ActionItem", "to_key": "ACT-FS-2024-001-2", "rel_type": "CORRECTIVE_ACTION", "properties": {}},
-    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "ActionItem", "to_key": "ACT-FS-2024-001-3", "rel_type": "PREVENTIVE_ACTION", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "ActionItem", "to_key": "ACT-FS-2024-001-2", "rel_type": "PREVENTIVE_ACTION", "properties": {}},
     {"from_label": "CauseItem", "from_key": "CAU-FS-2024-001-1", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
-    {"from_label": "ActionItem", "from_key": "ACT-FS-2024-001-2", "to_label": "CauseItem", "to_key": "CAU-FS-2024-001-1", "rel_type": "VERIFIES_CAUSE", "properties": {}},
-    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "RESPONSIBLE_ORG", "properties": {}},
+    {"from_label": "ActionItem", "from_key": "ACT-FS-2024-001-1", "to_label": "CauseItem", "to_key": "CAU-FS-2024-001-1", "rel_type": "VERIFIES_CAUSE", "properties": {}},
     {"from_label": "PartSerial", "from_key": "OR-001::B2024-05", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "SUPPLIED_BY", "properties": {}}
   ],
   "chunks": [],
@@ -181,7 +152,6 @@ ProductInstance, PartSerial, Organization
 - 没出现的实体类别，给空数组 []；report/event 未抽到给 null。
 - 所有 business_key 必须按上表规则填，且与各实体在 relationships 中引用一致。
 - relationships 中的 from_key/to_key 必须能在前面实体里找到对应 business_key（自包含闭合）。
-- relationships 中的 rel_type 必须严格来自上面 16 个白名单值之一，多一字都会被拒绝。
 """
 
 
@@ -193,7 +163,6 @@ EXTRACTION_USER_TEMPLATE = """报告标识: {report_id}
 请按 system 中描述的 schema 抽取并输出完整 JSON。注意：
 1. 字段名严格匹配（report 用 d4_root_cause_summary / d5_permanent_correction_summary / d7_prevention_summary）。
 2. relationships 必须是 from_label / from_key / to_label / to_key / rel_type 五字段。
-3. rel_type 只能从 16 个白名单（HAS_8D_REPORT / RELATED_FAILURE_MODE / ROOT_CAUSE / CORRECTIVE_ACTION / PREVENTIVE_ACTION / VERIFIES_CAUSE / HAPPENED_ON / RELATED_SERIAL / AFFECTED_PRODUCT / AFFECTED_SERIAL / TARGET_PRODUCT / TARGET_SERIAL / INSTALLED_ON / RESPONSIBLE_ORG / SUPPLIED_BY / MENTIONED_IN）中选。
-4. 每个实体必须带 business_key。
-5. 直接输出 JSON，不要任何额外文字。
+3. 每个实体必须带 business_key。
+4. 直接输出 JSON，不要任何额外文字。
 """

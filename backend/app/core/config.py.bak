@@ -83,12 +83,8 @@ class Settings(BaseSettings):
     minio_secure: bool = False
 
     # === LLM ===
-    llm_provider: str = "mock"  # mock | minimax
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = "sk-placeholder"
-    llm_model_default: str = "MiniMax-Text-01"
-    llm_timeout_seconds: int = 120
-    llm_max_retries: int = 3
 
     # === JWT / Auth ===
     secret_key: str = "change-me-in-production"
