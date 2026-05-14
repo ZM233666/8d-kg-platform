@@ -250,3 +250,62 @@ class Neo4jClient:
     async def close(self) -> None:
         """关闭 driver。"""
         await self._driver.close()
+
+
+# ---------- v0.2 唯一约束初始化（B2 新增） ----------
+
+# Label → 唯一键属性名映射（snake_case，与节点写入约定一致）
+_UNIQUE_KEY_MAP: dict[str, str] = {
+    "EightDReport": "business_key",
+    "ProductEvent": "business_key",
+    "FailureMode": "business_key",
+    "CauseItem": "business_key",
+    "ActionItem": "business_key",
+    "ProductInstance": "business_key",
+    "PartSerial": "business_key",
+    "Organization": "business_key",
+    "Chunk": "chunk_business_key",
+}
+
+
+async def ensure_constraints(driver) -> dict:
+    """为 9 个 Label 创建 unique constraint，幂等。
+
+    参数：
+        driver: neo4j.AsyncDriver 实例（从 get_neo4j_driver() 获取）
+
+    返回：
+        {"created": N, "existing": M, "names": [...]}
+    """
+    created = 0
+    existing = 0
+    names: list[str] = []
+    async with driver.session() as session:
+        for label, key in _UNIQUE_KEY_MAP.items():
+            constraint_name = f"uniq_{label.lower()}_{key}"
+            names.append(constraint_name)
+            cypher = (
+                f"CREATE CONSTRAINT {constraint_name} IF NOT EXISTS "
+                f"FOR (n:`{label}`) REQUIRE n.`{key}` IS UNIQUE"
+            )
+            result = await session.run(cypher)
+            summary = await result.consume()
+            if summary.counters.constraints_added > 0:
+                created += 1
+            else:
+                existing += 1
+    return {"created": created, "existing": existing, "names": names}
+
+
+async def drop_all_v1_constraints(driver) -> int:
+    """删除所有非 v0.2 的旧 constraint。返回删除数量。"""
+    v2_names = {f"uniq_{label.lower()}_{key}" for label, key in _UNIQUE_KEY_MAP.items()}
+    dropped = 0
+    async with driver.session() as session:
+        result = await session.run("SHOW CONSTRAINTS YIELD name")
+        all_names = [rec["name"] async for rec in result]
+        for name in all_names:
+            if name not in v2_names:
+                await session.run(f"DROP CONSTRAINT {name} IF EXISTS")
+                dropped += 1
+    return dropped

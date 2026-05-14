@@ -22,7 +22,7 @@ from app.schemas.entity import (
     ProductEvent,
     ProductInstance,
 )
-from app.schemas.extraction import ExtractionResult
+from app.schemas.extraction import ExtractionResult, RelationTriple
 
 __all__ = [
     # base
@@ -42,6 +42,7 @@ __all__ = [
     "Chunk",
     # extraction aggregate
     "ExtractionResult",
+    "RelationTriple",
     # api
     "DocumentResponse",
     "UploadResponse",
