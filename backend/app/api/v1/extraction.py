@@ -1,70 +1,83 @@
-"""Extraction 异步触发 / 状态查询端点。"""
+"""提取任务相关路由：触发提取（异步）+ 查询 run 状态。"""
 
-from uuid import UUID
+from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.models.document import Document
 from app.models.extraction_run import ExtractionRun
-from app.pipeline.base import run_pipeline
-from app.pipeline.context import PipelineContext
-from app.pipeline.s1_parse import run as s1
-from app.pipeline.s2_split import run as s2
-from app.pipeline.s3_table import run as s3
-from app.pipeline.s4_extract import run as s4
-from app.pipeline.s5_vectorize import run as s5
-from app.pipeline.s6_write import run as s6
 from app.schemas.api import ExtractionRunResponse, ExtractionTriggerResponse
+from app.tasks.celery_app import celery_app
 
 router = APIRouter(tags=["extraction"])
 
 
-@router.post("/documents/{document_id}/extract", response_model=ExtractionTriggerResponse)
+@router.post(
+    "/documents/{document_id}/extract",
+    response_model=ExtractionTriggerResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def trigger_extraction(
     document_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> ExtractionTriggerResponse:
-    """根据 document_id 触发 8D pipeline（s1→s6）。"""
+    """触发文档提取（异步）：INSERT extraction_run(status='pending') → 入队 Celery → 立即返回 202 + run_id。"""
+    # 1. 验证 document 存在
     result = await db.execute(select(Document).where(Document.id == document_id))
     doc = result.scalar_one_or_none()
     if doc is None:
-        raise HTTPException(404, "document not found")
+        raise HTTPException(status_code=404, detail=f"document not found: {document_id}")
 
-    try:
-        ctx = PipelineContext(
-            document_id=doc.id,
-            minio_key=doc.minio_key,
-            report_id_hint=None,
-            pipeline_version="v0.1.0",
-        )
-        ctx = await run_pipeline(ctx, [s1, s2, s3, s4, s5, s6])
-        run_id = ctx.extraction_run_id
-    except Exception as e:
-        raise HTTPException(500, detail=str(e)) from e
-
+    # 2. INSERT extraction_runs(status='pending')
+    run_id = uuid4()
+    pipeline_version = "v0.1.0"
+    now = datetime.now(timezone.utc)
+    run = ExtractionRun(
+        id=run_id,
+        document_id=document_id,
+        pipeline_version=pipeline_version,
+        llm_model="mock-v0.1",
+        started_at=now,
+        status="pending",
+    )
+    db.add(run)
     await db.commit()
 
-    run_result = await db.execute(select(ExtractionRun).where(ExtractionRun.id == run_id))
-    run = run_result.scalar_one_or_none()
+    # 3. 入队 Celery task（fire-and-forget，跳过 result backend ack 等待）
+    await asyncio.to_thread(
+        celery_app.send_task,
+        "app.tasks.pipeline_tasks.run_extraction_task",
+        args=[str(document_id), str(run_id), pipeline_version],
+        ignore_result=True,
+    )
 
+    # 4. 立即返回 202
     return ExtractionTriggerResponse(
         run_id=run_id,
-        document_id=doc.id,
-        status=run.status if run else "unknown",
+        document_id=document_id,
+        status="pending",
+        message="extraction queued; poll GET /api/v1/extraction-runs/{run_id} for status",
     )
 
 
-@router.get("/extraction-runs/{run_id}", response_model=ExtractionRunResponse)
+@router.get(
+    "/extraction-runs/{run_id}",
+    response_model=ExtractionRunResponse,
+)
 async def get_extraction_run(
     run_id: UUID,
     db: AsyncSession = Depends(get_db),
-) -> ExtractionRunResponse:
-    """根据 run_id 查询 extraction run 详情。"""
+) -> ExtractionRun:
+    """查询 extraction run 状态（pending / running / succeeded / failed）。"""
     result = await db.execute(select(ExtractionRun).where(ExtractionRun.id == run_id))
     run = result.scalar_one_or_none()
     if run is None:
-        raise HTTPException(404, "extraction run not found")
-    return ExtractionRunResponse.model_validate(run)
+        raise HTTPException(status_code=404, detail=f"extraction run not found: {run_id}")
+    return run

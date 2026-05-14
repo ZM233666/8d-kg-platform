@@ -27,4 +27,8 @@ celery_app.conf.update(
     # task 超时（pipeline 真实运行约 13s，给 5 分钟 buffer）
     task_time_limit=300,
     task_soft_time_limit=270,
+    # broker 调优：减少连接开销
+    broker_connection_retry=False,
+    broker_connection_timeout=3,
+    broker_pool_limit=1,
 )

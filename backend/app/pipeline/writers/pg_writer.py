@@ -81,20 +81,31 @@ async def write_pg(ctx: PipelineContext) -> dict:
         result = await session.execute(doc_stmt)
         effective_document_id: UUID = result.scalar_one()
 
-        # --- INSERT extraction_runs（status='running'）---
-        run_stmt = (
-            pg_insert(ExtractionRun)
-            .values(
-                document_id=effective_document_id,
-                pipeline_version=ctx.pipeline_version,
-                llm_model="mock-v0.1",
-                started_at=now,
-                status="running",
+        # --- extraction_runs：根据 ctx.extraction_run_id 决定 INSERT 还是 UPDATE ---
+        if ctx.extraction_run_id:
+            # Celery 异步路径：endpoint 已 INSERT(status='pending')，这里只 UPDATE 为 running
+            update_stmt = (
+                update(ExtractionRun)
+                .where(ExtractionRun.id == ctx.extraction_run_id)
+                .values(status="running", started_at=now)
             )
-            .returning(ExtractionRun.id)
-        )
-        run_result = await session.execute(run_stmt)
-        extraction_run_id: UUID = run_result.scalar_one()
+            await session.execute(update_stmt)
+            extraction_run_id: UUID = ctx.extraction_run_id
+        else:
+            # 同步路径（向后兼容）：直接 INSERT
+            run_stmt = (
+                pg_insert(ExtractionRun)
+                .values(
+                    document_id=effective_document_id,
+                    pipeline_version=ctx.pipeline_version,
+                    llm_model="mock-v0.1",
+                    started_at=now,
+                    status="running",
+                )
+                .returning(ExtractionRun.id)
+            )
+            run_result = await session.execute(run_stmt)
+            extraction_run_id = run_result.scalar_one()
 
         # --- BATCH INSERT chunks（按 chunk_business_key 幂等）---
         chunk_rows = []
