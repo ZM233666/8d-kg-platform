@@ -1,45 +1,41 @@
-# 环境与密钥
+
+__pycache__/
+!.env.example
+.coverage
+.DS_Store
 .env
 .env.*
-!.env.example
-**/password.md
-**/passwords.md
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-htmlcov/
-.coverage
-*.egg-info/
-
-# Node / 前端
-node_modules/
-dist/
-build/
-.vite/
-
-# IDE / OS
-.vscode/
 .idea/
-.DS_Store
-Thumbs.db
-
-# 日志 / 临时
-*.log
-logs/
-tmp/
-
-# 数据 / 导出
-data/
-exports/
-
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.vite/
+.vscode/
 *.bak
+*.bak*
 *.bak2
 *.bak3
 *.bak4
+*.egg-info/
+*.log
+*.pyc
+*.pyo
+**/password.md
+**/passwords.md
+# IDE / OS
+# Node / 前端
+# Python
+# 环境与密钥
+# 日志 / 临时
+# 数据 / 导出
+build/
+data/
+dist/
+exports/
+htmlcov/
+logs/
+node_modules/
+Thumbs.db
+tmp/
+venv/
