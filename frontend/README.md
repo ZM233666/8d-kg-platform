@@ -1,21 +1,32 @@
-# 前端
+# 前端说明
 
-> **v0.1 后端骨架优先，前端将在后端 `/health` 通过后单独生成。**
+8D 报告知识图谱平台前端使用 React + TypeScript + Vite 构建，当前已补齐原型页面骨架，覆盖以下主路径：
 
-## 状态
+- 文档上传
+- 文档列表
+- 抽取任务列表与详情
+- 图谱浏览
+- 关键词检索
 
-- [ ] 后端骨架生成中（进行中）
-- [ ] 前端代码生成（待启动）
+## 本地开发
 
-## 技术栈（已选定）
+在仓库根目录先启动后端与隧道，再进入前端目录启动开发服务器：
 
-- React 18 + TypeScript 5+
-- Vite 5+
-- Ant Design 5 + ProComponents
-- AntV G6 v5（图谱可视化）
-- TanStack Query v5（服务端状态）
-- Zustand（客户端状态）
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## 下一步
+默认开发地址为 `http://localhost:5172`，通过 Vite 代理把 `/api` 请求转发到 `http://localhost:8000`。
 
-待后端 `make backend` + `make tunnel-up` 成功，`curl http://localhost:8000/health` 返回 `{"status":"ok",...}` 后，再启动前端完整代码生成。
+## 当前状态
+
+- 已有页面原型和接口封装
+- 已配置 Ant Design、TanStack Query、Zustand、G6
+- 当前仍存在若干 TypeScript 构建错误，正式联调前需要继续收敛接口与类型
+
+## 约定
+
+- 当前仓库以 `npm` 作为前端包管理器，提交 `package-lock.json`
+- `pnpm-lock.yaml` 不纳入版本管理，避免双锁文件并存

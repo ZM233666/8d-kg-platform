@@ -8,6 +8,7 @@ __pycache__/
 .idea/
 .mypy_cache/
 .pytest_cache/
+.pnpm-store/
 .ruff_cache/
 .venv/
 .vite/
@@ -36,6 +37,7 @@ exports/
 htmlcov/
 logs/
 node_modules/
+frontend/pnpm-lock.yaml
 Thumbs.db
 tmp/
 venv/
