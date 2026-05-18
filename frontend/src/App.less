@@ -1,0 +1,166 @@
+/** App 全局样式 */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f5f5f5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Ant Design 覆盖
+.ant-layout {
+  background: #f5f5f5;
+}
+
+.ant-layout-content {
+  background: #f5f5f5;
+}
+
+// Layout 背景
+.page-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  min-height: calc(100vh - 64px - 48px);
+}
+
+// Card hover
+.ant-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+}
+
+// 表格
+.ant-table-wrapper {
+  .ant-table-thead > tr > th {
+    background: #fafafa;
+    font-weight: 600;
+  }
+}
+
+// Form
+.ant-form-item-label > label {
+  font-weight: 500;
+}
+
+// Breadcrumb
+.ant-breadcrumb {
+  font-size: 13px;
+}
+
+// Tag 样式
+.entity-tag {
+  font-weight: 500;
+}
+
+// Progress 文字
+.ant-progress-text {
+  font-weight: 600;
+}
+
+// 固定列宽表格
+.table-fixed {
+  overflow-x: auto;
+}
+
+// 图谱页面
+.graph-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  &__canvas {
+    flex: 1;
+    min-height: 500px;
+    background: #fafafa;
+    border-radius: 8px;
+    border: 1px solid #f0f0f0;
+  }
+}
+
+// 空状态
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: rgba(0, 0, 0, 0.45);
+
+  &__icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #d9d9d9;
+  }
+
+  &__text {
+    font-size: 14px;
+    text-align: center;
+  }
+}
+
+// 详情页
+.detail-page {
+  max-width: 1200px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  &__section {
+    margin-bottom: 24px;
+  }
+
+  &__meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+}
+
+// 任务详情
+.task-detail {
+  &__timeline {
+    margin-left: 12px;
+  }
+
+  &__log {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+}
+
+// 上传页
+.upload-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+// 响应式
+@media (max-width: 768px) {
+  .detail-page {
+    &__header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    &__meta {
+      grid-template-columns: 1fr;
+    }
+  }
+}

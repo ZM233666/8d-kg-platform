@@ -20,6 +20,7 @@ import structlog
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from app.llm.base import LLMError, LLMUsage
+from app.pipeline.relationship_builder import normalize_relationships_raw
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -111,6 +112,7 @@ class MinimaxClient:
 
         # 容错预处理
         data = _coerce_types(data)
+        data = normalize_relationships_raw(data)
 
         # 用 Pydantic 校验
         try:

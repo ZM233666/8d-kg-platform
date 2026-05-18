@@ -1,4 +1,4 @@
-"""s2 Splitter：将 raw_text 按章节+段落切分为 list[Chunk]。"""
+"""s2 Splitter：一份报告文档只切成 1 个 Chunk。"""
 
 from __future__ import annotations
 
@@ -146,7 +146,7 @@ def _build_chunk(
 
 @stage("s2_split")
 async def run(ctx: PipelineContext) -> PipelineContext:
-    """把 ctx.raw_text 按章节+段落切分为 ctx.chunks。"""
+    """把整份报告作为一个 chunk 写入 ctx.chunks。"""
     if not ctx.raw_text:
         logger.warning("s2_split.skip_empty_text")
         return ctx
@@ -155,40 +155,18 @@ async def run(ctx: PipelineContext) -> PipelineContext:
     encoder = tiktoken.get_encoding("cl100k_base")
     report_id = ctx.report_id_hint or "UNKNOWN"
 
-    sections_raw = SEC_RE.split(ctx.raw_text)
-    # SEC_RE.split 返回 [pre, path1, content1, path2, content2, ...]
-    chunks_out: list[Chunk] = []
-    para_idx = 0
-    i = 1
-    while i < len(sections_raw):
-        path_str = sections_raw[i].strip()
-        content = sections_raw[i + 1] if (i + 1) < len(sections_raw) else ""
-        i += 2
+    chunk_text = ctx.raw_text.strip()
+    if not chunk_text:
+        logger.warning("s2_split.skip_empty_text")
+        return ctx
 
-        section_path = path_str.split("/") if path_str else []
-        # 按空行（\n\n）切段落，strip 掉空部分
-        paragraphs = [p.strip() for p in content.split("\n\n")]
-        for para in paragraphs:
-            if not para:
-                continue
-            sub_texts = _split_chunk(encoder, para)
-            sub_texts = _post_merge_small_chunks(sub_texts)
-            for st in sub_texts:
-                st = st.strip()
-                if not st:
-                    continue
-                chunk = _build_chunk(report_id, section_path, para_idx, st, lex, encoder)
-                chunks_out.append(chunk)
-                para_idx += 1
+    chunk = _build_chunk(report_id, ["全文"], 0, chunk_text, lex, encoder)
+    chunks_out = [chunk]
 
     ctx.chunks = chunks_out
-
-    from collections import Counter
-
-    role_dist = Counter(c.chunk_role for c in chunks_out)
     logger.info(
         "s2_split.done",
         total=len(chunks_out),
-        by_role=dict(role_dist),
+        by_role={chunk.chunk_role: 1},
     )
     return ctx

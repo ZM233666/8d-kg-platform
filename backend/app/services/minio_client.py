@@ -82,7 +82,10 @@ async def download_to_tempfile(minio_url: str) -> Path:
     bucket, key = parse_minio_url(minio_url)
     client = get_minio_client()
 
-    tmp = NamedTemporaryFile(delete=False, suffix=Path(key).suffix)
+    suffix = Path(key).suffix.lower()
+    if suffix not in (".docx", ".doc"):
+        suffix = ".docx"
+    tmp = NamedTemporaryFile(delete=False, suffix=suffix)
     tmp_path = Path(tmp.name)
     tmp.close()  # fget_object 需要关闭的 fd
 

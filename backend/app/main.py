@@ -10,6 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import v1_router
 from app.core.config import settings
+from app.llm import effective_llm_model
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import get_logger, setup_logging
 from app.db.minio import ensure_minio_bucket, ping_minio
@@ -29,7 +30,12 @@ log = get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """应用生命周期管理。"""
     setup_logging()
-    log.info("app_starting", version=settings.pipeline.pipeline_version)
+    log.info(
+        "app_starting",
+        version=settings.pipeline.pipeline_version,
+        llm_provider=settings.llm_provider,
+        llm_model=effective_llm_model(),
+    )
 
     # --- MinIO bucket 初始化（确保写入目标存在）---
     try:

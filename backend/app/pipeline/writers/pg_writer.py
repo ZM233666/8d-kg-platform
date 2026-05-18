@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.postgres import async_session_maker
+from app.llm import effective_llm_model
 from app.models import Chunk, Document, ExtractionRun
 from app.pipeline.context import PipelineContext
 from app.schemas.entity import Chunk as ChunkSchema
@@ -87,7 +88,11 @@ async def write_pg(ctx: PipelineContext) -> dict:
             update_stmt = (
                 update(ExtractionRun)
                 .where(ExtractionRun.id == ctx.extraction_run_id)
-                .values(status="running", started_at=now)
+                .values(
+                    status="running",
+                    started_at=now,
+                    llm_model=effective_llm_model(),
+                )
             )
             await session.execute(update_stmt)
             extraction_run_id: UUID = ctx.extraction_run_id
@@ -98,7 +103,7 @@ async def write_pg(ctx: PipelineContext) -> dict:
                 .values(
                     document_id=effective_document_id,
                     pipeline_version=ctx.pipeline_version,
-                    llm_model="mock-v0.1",
+                    llm_model=effective_llm_model(),
                     started_at=now,
                     status="running",
                 )

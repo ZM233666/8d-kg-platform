@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db
 from app.models.document import Document
 from app.schemas.api import DocumentListResponse, DocumentResponse, UploadResponse
+from app.services.doc_format import INVALID_DOCX_MSG, sniff_word_format
 from app.services.minio_client import upload_bytes
 
 # ---------- upload ----------
@@ -19,7 +20,10 @@ list_router = APIRouter(prefix="", tags=["documents-query"])
 
 SYSTEM_USER_UUID = UUID("00000000-0000-0000-0000-000000000000")
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-ALLOWED_MIME = {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+ALLOWED_MIME = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "application/msword",  # 浏览器对 .doc 的 MIME，上传后按内容校验
+}
 
 
 @upload_router.post("/upload", response_model=UploadResponse)
@@ -27,7 +31,7 @@ async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ) -> UploadResponse:
-    """上传 docx 文件到 MinIO，记录到 PG documents 表。"""
+    """上传 Word 文档（.doc / .docx）到 MinIO，记录到 PG documents 表。"""
     data = await file.read()
 
     if len(data) > MAX_FILE_SIZE:
@@ -35,6 +39,10 @@ async def upload_document(
 
     if file.content_type not in ALLOWED_MIME:
         raise HTTPException(415, "Unsupported media type")
+
+    fmt = sniff_word_format(data)
+    if fmt not in ("docx", "doc"):
+        raise HTTPException(415, INVALID_DOCX_MSG)
 
     sha256 = hashlib.sha256(data).hexdigest()
 
@@ -86,6 +94,20 @@ async def get_document(
     if doc is None:
         raise HTTPException(404, "document not found")
     return DocumentResponse.model_validate(doc)
+
+
+@list_router.delete("/documents/{document_id}", status_code=204)
+async def delete_document(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """删除文档（硬删除）。"""
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    doc = result.scalar_one_or_none()
+    if doc is None:
+        raise HTTPException(404, "document not found")
+    await db.delete(doc)
+    await db.commit()
 
 
 @list_router.get("/documents", response_model=DocumentListResponse)

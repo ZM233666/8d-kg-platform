@@ -34,6 +34,10 @@ class DocumentListResponse(BaseModel):
 class ExtractionRunResponse(BaseModel):
     id: UUID
     document_id: UUID
+    document_file_name: str | None = Field(
+        default=None,
+        description="关联文档文件名（来自 documents.file_name）",
+    )
     pipeline_version: str
     llm_model: str | None
     status: str
@@ -46,6 +50,20 @@ class ExtractionRunResponse(BaseModel):
     error_detail: dict | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ExtractionRunListResponse(BaseModel):
+    items: list[ExtractionRunResponse]
+    total: int
+    offset: int
+    limit: int
+
+
+class ExtractionCancelResponse(BaseModel):
+    run_id: UUID
+    status: str
+    cancelled: bool = True
+    message: str = "extraction cancelled"
 
 
 class ExtractionTriggerResponse(BaseModel):

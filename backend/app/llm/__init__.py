@@ -14,8 +14,17 @@ __all__ = [
     "LLMError",
     "MockLLMClient",
     "MinimaxClient",
+    "effective_llm_model",
     "get_llm_client",
 ]
+
+
+def effective_llm_model() -> str:
+    """写入 extraction_run 与 stats 时使用的模型名。"""
+    provider = (settings.llm_provider or "mock").lower()
+    if provider == "mock":
+        return "mock-v0.1"
+    return settings.llm_model_default or "MiniMax-M2.7"
 
 
 def get_llm_client() -> LLMClient:

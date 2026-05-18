@@ -34,6 +34,8 @@ async def _update_run_status(
         upd: dict = {"status": status, "finished_at": now}
         if stats:
             upd["stage_metrics"] = stats
+            if "llm_model" in stats:
+                upd["llm_model"] = stats["llm_model"]
             if "llm_prompt_tokens" in stats:
                 upd["token_input"] = stats["llm_prompt_tokens"]
             if "llm_completion_tokens" in stats:

@@ -9,6 +9,12 @@ from uuid import UUID
 import structlog
 
 from app.core.config import settings
+from app.services.extraction_run_service import (
+    RunCancelledError,
+    assert_run_not_cancelled,
+    mark_run_running_sync,
+    merge_celery_task_id_sync,
+)
 from app.tasks.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -29,8 +35,12 @@ def run_extraction_task(
 
     入参为字符串 UUID（Celery JSON 序列化需要），内部转 UUID。
     返回任务执行摘要 dict。
-    Worker 内部用 asyncio.run 跑异步 pipeline。
+    Worker 内用 nest_asyncio.apply() 后再调 asyncio.run()。
     """
+    import nest_asyncio
+
+    nest_asyncio.apply()
+
     logger.info(
         "task.run_extraction_task.start",
         task_id=self.request.id,
@@ -42,6 +52,8 @@ def run_extraction_task(
     run_uuid = UUID(extraction_run_id)
 
     try:
+        merge_celery_task_id_sync(run_uuid, self.request.id)
+        mark_run_running_sync(run_uuid, stage="s1_parse")
         result = asyncio.run(_run_pipeline_async(doc_uuid, run_uuid, pipeline_version))
         logger.info(
             "task.run_extraction_task.done",
@@ -50,6 +62,13 @@ def run_extraction_task(
             result=result,
         )
         return result
+    except RunCancelledError:
+        logger.info(
+            "task.run_extraction_task.cancelled",
+            task_id=self.request.id,
+            extraction_run_id=extraction_run_id,
+        )
+        return {"cancelled": True, "extraction_run_id": extraction_run_id}
     except Exception as exc:
         logger.exception(
             "task.run_extraction_task.failed",
@@ -57,7 +76,6 @@ def run_extraction_task(
             extraction_run_id=extraction_run_id,
             error=str(exc),
         )
-        # 把 extraction_run 标记为 failed（避免永远 pending）
         try:
             _mark_run_failed_sync(run_uuid, str(exc))
         except Exception as inner:
@@ -71,6 +89,8 @@ async def _run_pipeline_async(
     pipeline_version: str,
 ) -> dict:
     """实际异步逻辑：查 doc → 构造 ctx → run_pipeline。"""
+    await assert_run_not_cancelled(extraction_run_id)
+
     from sqlalchemy import select
     from app.db.postgres import async_session_maker
     from app.models.document import Document
@@ -117,10 +137,7 @@ from app.models.extraction_run import ExtractionRun
 
 def _mark_run_failed_sync(extraction_run_id, error: str) -> None:
     """同步标记 run failed，避免 asyncio.run() 创建新 loop。"""
-    sync_engine = create_engine(
-        settings.postgres_dsn.replace("+asyncpg", ""),
-        future=True,
-    )
+    sync_engine = create_engine(settings.alembic_database_url, future=True)
 
     with sync_engine.begin() as conn:
         conn.execute(

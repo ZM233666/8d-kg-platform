@@ -13,6 +13,8 @@ from docx.oxml.ns import qn
 
 from app.pipeline.base import stage
 from app.pipeline.context import PipelineContext
+from app.services.doc_converter import open_as_docx
+from app.services.doc_format import INVALID_DOCX_MSG, read_sniff_word_format
 from app.services.minio_client import download_to_tempfile, parse_minio_url
 
 logger = structlog.get_logger(__name__)
@@ -43,6 +45,8 @@ def _load_local_docx(path: str) -> Document:
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"Local docx not found: {p}")
+    if read_sniff_word_format(p) != "docx":
+        raise ValueError(INVALID_DOCX_MSG)
     return Document(str(p))
 
 
@@ -55,6 +59,10 @@ def _tbl_to_dict(table, section_path: list[str], raw_index: int) -> dict:
 
 
 _REPORT_ID_HEADER_KEYS = ("项目编号", "报告编号", "Report ID", "report_id")
+_REPORT_ID_TEXT_RE = re.compile(
+    r"(?:FS|8D|RPT)[-_]?[A-Z0-9][A-Z0-9\-_/]{3,}",
+    re.IGNORECASE,
+)
 
 
 def _extract_report_id_from_tables(raw_tables: list[dict]) -> str | None:
@@ -85,6 +93,16 @@ def _extract_report_id_from_tables(raw_tables: list[dict]) -> str | None:
     return None
 
 
+def _extract_report_id_from_text(raw_text: str) -> str | None:
+    """从正文前 2000 字匹配 FS-/8D- 样式报告编号。"""
+    if not raw_text:
+        return None
+    m = _REPORT_ID_TEXT_RE.search(raw_text[:2000])
+    if m:
+        return m.group(0).upper().replace("_", "-")
+    return None
+
+
 @stage("s1_parse")
 async def run(ctx: PipelineContext) -> PipelineContext:
     """从 ctx.minio_key 读取 docx，解析为 raw_text / raw_tables / raw_images。"""
@@ -92,12 +110,14 @@ async def run(ctx: PipelineContext) -> PipelineContext:
     scheme = parsed.scheme
 
     if scheme == "local":
-        docx_path = ctx.minio_key[len("local://") :]
-        doc = _load_local_docx(docx_path)
+        local_path = Path(ctx.minio_key[len("local://") :])
+        with open_as_docx(local_path) as docx_path:
+            doc = _load_local_docx(str(docx_path))
     elif scheme == "minio":
         tmp_path = await download_to_tempfile(ctx.minio_key)
         try:
-            doc = _load_local_docx(str(tmp_path))
+            with open_as_docx(tmp_path) as docx_path:
+                doc = _load_local_docx(str(docx_path))
         finally:
             tmp_path.unlink(missing_ok=True)
     else:
@@ -139,6 +159,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
     # --- 提取 report_id（如果调用方没传 hint）---
     if not ctx.report_id_hint:
         extracted_id = _extract_report_id_from_tables(ctx.raw_tables)
+        if not extracted_id:
+            extracted_id = _extract_report_id_from_text(ctx.raw_text)
         if extracted_id:
             ctx.report_id_hint = extracted_id
             logger.info("s1_parse.report_id_extracted", report_id=extracted_id)

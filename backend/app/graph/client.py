@@ -163,6 +163,8 @@ class Neo4jClient:
         label: str,
         business_key: str,
         depth: int = 2,
+        *,
+        exclude_chunks: bool = False,
     ) -> dict:
         """以 (label, business_key) 为中心，返回 depth 跳邻域子图。
 
@@ -240,6 +242,19 @@ class Neo4jClient:
                 "end_label": rec["end_labels"][0] if rec["end_labels"] else None,
                 "properties": _neo4j_to_json(dict(rel_props)) if rel_props else {},
             })
+
+        if exclude_chunks:
+            nodes = [n for n in nodes if "Chunk" not in n.get("labels", [])]
+            node_bks = {n["business_key"] for n in nodes if n.get("business_key")}
+            relationships = [
+                r
+                for r in relationships
+                if r.get("type") not in ("MENTIONED_IN", "MENTIONS")
+                and r.get("start_label") != "Chunk"
+                and r.get("end_label") != "Chunk"
+                and r.get("start_bk") in node_bks
+                and r.get("end_bk") in node_bks
+            ]
 
         return {
             "center_exists": True,

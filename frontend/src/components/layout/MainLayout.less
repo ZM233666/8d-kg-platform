@@ -1,0 +1,145 @@
+/** MainLayout 样式 */
+
+.main-layout {
+  min-height: 100vh;
+
+  &__sider {
+    position: fixed !important;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    overflow: auto;
+
+    &--dark {
+      background: #141414;
+    }
+
+    &--light {
+      background: #001529;
+    }
+  }
+
+  &__logo {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    &-text {
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    &-full {
+      color: #1677ff;
+      font-size: 22px;
+      font-weight: 800;
+    }
+  }
+
+  &__collapse-btn {
+    position: absolute;
+    bottom: 48px;
+    left: 0;
+    right: 0;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.45);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    transition: color 0.2s;
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 99;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+    &--dark {
+      background: #1f1f1f;
+      border-bottom: 1px solid #303030;
+    }
+
+    &--light {
+      background: #fff;
+      border-bottom: 1px solid #f0f0f0;
+    }
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__content {
+    padding: 24px;
+    min-height: calc(100vh - 64px);
+  }
+
+  &__user-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+}
+
+// 响应式
+@media (max-width: 768px) {
+  .main-layout__sider {
+    position: fixed !important;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+
+    &--open {
+      transform: translateX(0);
+    }
+  }
+
+  .main-layout__content {
+    padding: 16px;
+  }
+}
+
+// Ant Design Menu 定制
+.ant-menu-dark {
+  background: transparent;
+
+  .ant-menu-item-selected {
+    background: rgba(22, 119, 255, 0.25) !important;
+  }
+}
+
+// 徽章样式
+.ant-badge-count-small {
+  box-shadow: none;
+}

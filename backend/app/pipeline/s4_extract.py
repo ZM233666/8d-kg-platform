@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import structlog
 
-from app.llm import get_llm_client
+from app.llm import effective_llm_model, get_llm_client
 from app.llm import prompts as P
 from app.pipeline.base import stage
 from app.pipeline.context import PipelineContext
+from app.pipeline.relationship_builder import enrich_extraction_result
 from app.schemas.extraction import ExtractionResult
 
 logger = structlog.get_logger(__name__)
@@ -43,7 +44,12 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         response_model=ExtractionResult,
+        max_tokens=8192,
+        temperature=0.1,
     )
+
+    # 同步 business_key、补全 relationships（LLM 常漏填或字段名不一致）
+    result = enrich_extraction_result(result, report_id_hint=ctx.report_id_hint)
 
     # 把 s2 切好的 chunks 塞回 ExtractionResult（LLM 不重复输出 chunks）
     result.chunks = ctx.chunks
@@ -54,7 +60,7 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         "llm_prompt_tokens": usage.prompt_tokens,
         "llm_completion_tokens": usage.completion_tokens,
         "llm_total_tokens": usage.total_tokens,
-        "llm_model": usage.metadata.get("model", "mock-v0.1"),
+        "llm_model": usage.model or usage.metadata.get("model") or effective_llm_model(),
     }
 
     ctx.extraction_result = result
