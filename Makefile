@@ -36,8 +36,12 @@ alembic:
 
 # 前端
 frontend:
-	@echo "启动前端开发服务器 (:5173)..."
-	cd frontend && pnpm install && pnpm dev
+	@echo "启动前端开发服务器 (127.0.0.1:5173)..."
+	cd frontend && if [ -d node_modules ]; then \
+		npm run dev -- --host 127.0.0.1 --port 5173; \
+	else \
+		npm install && npm run dev -- --host 127.0.0.1 --port 5173; \
+	fi
 
 # 测试
 test:
@@ -78,7 +82,7 @@ dev:
 	@echo "终端 3: make worker"
 	@echo "终端 4: make frontend"
 	@echo "=== 健康检查 ==="
-	@echo "curl http://localhost:8000/health"
+	@echo "curl http://localhost:8000/api/v1/health"
 
 help:
 	@echo "8D KG Platform 开发命令"
@@ -87,7 +91,7 @@ help:
 	@echo "tunnel-status  检查所有隧道端口连通性"
 	@echo "backend        启动 FastAPI 后端 (:8000)"
 	@echo "worker         启动 Celery worker"
-	@echo "frontend       启动前端 (:5173)"
+	@echo "frontend       启动前端 (127.0.0.1:5173)"
 	@echo "alembic        运行数据库迁移"
 	@echo "test           运行测试"
 	@echo "lint           代码静态检查"
