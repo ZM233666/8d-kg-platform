@@ -83,12 +83,25 @@ class Settings(BaseSettings):
     minio_secure: bool = False
 
     # === LLM ===
-    llm_provider: str = "mock"  # mock | minimax
+    llm_provider: str = "mock"  # mock | minimax | codex
+    llm_fallback_provider: str | None = None
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = "sk-placeholder"
     llm_model_default: str = "MiniMax-Text-01"
     llm_timeout_seconds: int = 120
     llm_max_retries: int = 3
+
+    # === Codex Extractor Service ===
+    codex_base_url: str = "http://127.0.0.1:8787"
+    codex_extract_path: str = "/extract"
+    codex_timeout_seconds: int = 120
+    codex_max_retries: int = 2
+    codex_skill_name: str = "8d-report-extraction-core"
+    codex_skill_version: str = "draft"
+    codex_executor_label: str = "codex-local"
+    codex_cli_path: str = "codex"
+    codex_exec_workdir: str = ""
+    codex_exec_model: str | None = None
 
     # === JWT / Auth ===
     secret_key: str = "change-me-in-production"

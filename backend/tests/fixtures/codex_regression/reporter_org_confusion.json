@@ -1,0 +1,42 @@
+{
+  "name": "reporter_org_confusion",
+  "context": {
+    "minio_key": "documents/fs-reg-001.docx",
+    "report_id_hint": "FS-REG-001",
+    "chunks": [
+      {
+        "chunk_id": "FS-REG-001#D2#1",
+        "report_id": "FS-REG-001",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "客户克诺尔苏州反馈 EP2002 阀在验收测试时密封面渗油，需发起 8D 分析。",
+        "token_count": 28
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REG-001",
+      "report_no": "FS-REG-001",
+      "issue_title": "EP2002 阀验收测试密封面渗油",
+      "d2_problem_statement": "客户反馈 EP2002 阀在验收测试时密封面渗油。"
+    },
+    "event": {
+      "business_key": "EVT-FS-REG-001",
+      "event_id": "EVT-FS-REG-001",
+      "event_type": "客诉",
+      "symptom": "密封面渗油",
+      "reporter_name": "克诺尔苏州"
+    },
+    "organizations": [
+      {
+        "business_key": "ORG-KNORR-SZ",
+        "org_code": "ORG-KNORR-SZ",
+        "org_name": "克诺尔苏州",
+        "org_type": "客户"
+      }
+    ],
+    "relationships": []
+  }
+}

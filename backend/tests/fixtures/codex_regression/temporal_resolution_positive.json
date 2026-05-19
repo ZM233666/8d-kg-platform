@@ -1,0 +1,80 @@
+{
+  "name": "temporal_resolution_positive",
+  "source_kind": "synthetic",
+  "deidentification": "构造一份带明确发生/完成/关闭时间的 8D 报告片段，用于验证 closed_at/completed_at 正向抽取链路。",
+  "context": {
+    "minio_key": "documents/fs-reg-007.docx",
+    "report_id_hint": "FS-REG-007",
+    "chunks": [
+      {
+        "chunk_id": "FS-REG-007#D2#1",
+        "report_id": "FS-REG-007",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "2025年7月20日现场首检发现阀体泄漏，触发 8D 调查。",
+        "token_count": 20
+      },
+      {
+        "chunk_id": "FS-REG-007#D5#1",
+        "report_id": "FS-REG-007",
+        "section_path": ["D5", "纠正措施"],
+        "para_idx": 1,
+        "chunk_role": "action",
+        "text": "纠正措施：更换密封圈并复测。该措施已于2025年7月28日完成，由质量工程师张工确认。",
+        "token_count": 36
+      },
+      {
+        "chunk_id": "FS-REG-007#D8#1",
+        "report_id": "FS-REG-007",
+        "section_path": ["D8", "最终会议"],
+        "para_idx": 1,
+        "chunk_role": "action",
+        "text": "最终会议于2025年7月30日召开，报告于2025年7月30日关闭。",
+        "token_count": 24
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REG-007",
+      "report_no": "FS-REG-007",
+      "issue_title": "阀体泄漏调查",
+      "report_date": "2025-07-20T00:00:00Z",
+      "closed_at": "2025-07-30T00:00:00Z",
+      "report_status": "关闭",
+      "d2_problem_statement": "2025年7月20日现场首检发现阀体泄漏。",
+      "d5_permanent_correction_summary": "更换密封圈并复测。",
+      "supporting_chunks": [
+        "FS-REG-007#D2#1",
+        "FS-REG-007#D5#1",
+        "FS-REG-007#D8#1"
+      ]
+    },
+    "event": {
+      "business_key": "EVT-FS-REG-007",
+      "event_id": "EVT-FS-REG-007",
+      "event_type": "故障",
+      "symptom": "阀体泄漏",
+      "occurred_at": "2025-07-20T00:00:00Z",
+      "supporting_chunks": [
+        "FS-REG-007#D2#1"
+      ]
+    },
+    "actions": [
+      {
+        "business_key": "ACT-REG-007-1",
+        "action_id": "ACT-REG-007-1",
+        "title": "更换密封圈并复测",
+        "action_type": "纠正D5",
+        "status": "完成",
+        "owner_name": "张工",
+        "completed_at": "2025-07-28T00:00:00Z",
+        "supporting_chunks": [
+          "FS-REG-007#D5#1"
+        ]
+      }
+    ],
+    "relationships": []
+  }
+}

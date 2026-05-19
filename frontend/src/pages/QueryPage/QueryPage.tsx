@@ -16,6 +16,8 @@ import {
   Row,
   Col,
   Empty,
+  DatePicker,
+  Divider,
 } from 'antd'
 import {
   SearchOutlined,
@@ -24,10 +26,12 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
+import type { DatePickerProps } from 'antd'
 
 import { useQueryHistoryStore } from '../../store'
 import { queryApi } from '../../api'
 import type { QueryHistoryItem } from '../../store'
+import type { StructuredQueryEntityType, StructuredQueryResponse } from '../../types'
 
 const { Text } = Typography
 
@@ -49,20 +53,45 @@ interface SearchResult {
   entity_type: string
   match_score: number
   timestamp: string
+  business_key?: string
+  source_doc_id?: string | null
 }
+
+const TEMPORAL_ENTITY_OPTIONS: { label: string; value: StructuredQueryEntityType }[] = [
+  { label: '8D报告', value: 'EightDReport' },
+  { label: '产品事件', value: 'ProductEvent' },
+]
+
+const normalizeStructuredResults = (
+  data: StructuredQueryResponse,
+  queriedAt: string
+): SearchResult[] =>
+  data.items.map((item) => ({
+    id: item.business_key,
+    business_key: item.business_key,
+    content: item.summary || item.source_doc_id || item.business_key,
+    entity_type: item.entity_type,
+    match_score: item.confidence ?? 0,
+    timestamp: queriedAt,
+    source_doc_id: item.source_doc_id,
+  }))
 
 export const QueryPage: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage()
   const [keyword, setKeyword] = useState('')
   const [entityFilter, setEntityFilter] = useState('')
+  const [temporalEntityType, setTemporalEntityType] = useState<StructuredQueryEntityType>('EightDReport')
+  const [temporalStart, setTemporalStart] = useState<string | null>(null)
+  const [temporalEnd, setTemporalEnd] = useState<string | null>(null)
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
 
   const { history, addQuery, removeQuery, clearHistory } = useQueryHistoryStore()
 
-  const handleSearch = useCallback(async () => {
-    if (!keyword.trim()) {
+  const handleSearch = useCallback(async (inputKeyword?: string) => {
+    const resolvedKeyword = (inputKeyword ?? keyword).trim()
+    if (!resolvedKeyword) {
       messageApi.warning('请输入搜索关键词')
       return
     }
@@ -70,13 +99,13 @@ export const QueryPage: React.FC = () => {
     setLoading(true)
     setHasSearched(true)
     try {
-      const data = await queryApi.search(keyword, 20)
+      const data = await queryApi.search(resolvedKeyword, 20)
       // 后端返回类型未知，暂做兜底处理
       const items = Array.isArray(data) ? data : (data as { items?: SearchResult[] }).items ?? []
       setResults(items as SearchResult[])
       addQuery({
         id: Date.now().toString(),
-        query: keyword,
+        query: resolvedKeyword,
         timestamp: new Date().toISOString(),
         resultCount: items.length,
       })
@@ -87,6 +116,55 @@ export const QueryPage: React.FC = () => {
       setLoading(false)
     }
   }, [keyword, addQuery, messageApi])
+
+  const handleTemporalStartChange: DatePickerProps['onChange'] = (value) => {
+    setTemporalStart(value ? value.startOf('day').toISOString() : null)
+  }
+
+  const handleTemporalEndChange: DatePickerProps['onChange'] = (value) => {
+    setTemporalEnd(value ? value.endOf('day').toISOString() : null)
+  }
+
+  const handleStructuredSearch = useCallback(async () => {
+    if (!temporalStart && !temporalEnd) {
+      messageApi.warning('请至少选择一个时间边界')
+      return
+    }
+
+    setLoading(true)
+    setHasSearched(true)
+    try {
+      const queriedAt = new Date().toISOString()
+      const filters =
+        temporalEntityType === 'EightDReport'
+          ? {
+              report_date_from: temporalStart || undefined,
+              report_date_to: temporalEnd || undefined,
+            }
+          : {
+              occurred_at_from: temporalStart || undefined,
+              occurred_at_to: temporalEnd || undefined,
+            }
+
+      const data = await queryApi.structuredSearch({
+        entity_type: temporalEntityType,
+        filters,
+        page: 1,
+        page_size: 20,
+        sort_by: temporalEntityType === 'EightDReport' ? 'report_date' : 'occurred_at',
+        sort_order: 'desc',
+      })
+
+      setResults(normalizeStructuredResults(data, queriedAt))
+      setEntityFilter(temporalEntityType)
+      messageApi.success(`已返回 ${data.pagination.total} 条时间筛选结果`)
+    } catch {
+      messageApi.error('时间筛选失败，请稍后重试')
+      setResults([])
+    } finally {
+      setLoading(false)
+    }
+  }, [messageApi, temporalEnd, temporalEntityType, temporalStart])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSearch()
@@ -107,6 +185,14 @@ export const QueryPage: React.FC = () => {
           {v}
         </Tag>
       ),
+    },
+    {
+      title: '业务键',
+      dataIndex: 'business_key',
+      key: 'business_key',
+      width: 180,
+      ellipsis: true,
+      render: (v?: string) => <Text code>{v || '-'}</Text>,
     },
     {
       title: '内容摘要',
@@ -139,10 +225,18 @@ export const QueryPage: React.FC = () => {
       render: (v: string) => new Date(v).toLocaleString('zh-CN'),
     },
     {
+      title: '来源文档',
+      dataIndex: 'source_doc_id',
+      key: 'source_doc_id',
+      width: 180,
+      ellipsis: true,
+      render: (v?: string | null) => v || '-',
+    },
+    {
       title: '操作',
       key: 'action',
       width: 80,
-      render: (_, record) => (
+      render: () => (
         <Space>
           <Tooltip title="查看实体详情">
             <Button size="small" icon={<SearchOutlined />} />
@@ -184,7 +278,10 @@ export const QueryPage: React.FC = () => {
             <Button
               size="small"
               icon={<ReloadOutlined />}
-              onClick={() => { setKeyword(record.query); handleSearch() }}
+              onClick={() => {
+                setKeyword(record.query)
+                void handleSearch(record.query)
+              }}
             />
           </Tooltip>
           <Tooltip title="删除">
@@ -224,10 +321,43 @@ export const QueryPage: React.FC = () => {
                   style={{ width: 140 }}
                   placeholder="实体类型"
                 />
-                <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleSearch} loading={loading}>
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<SearchOutlined />}
+                  onClick={() => {
+                    void handleSearch()
+                  }}
+                  loading={loading}
+                >
                   搜索
                 </Button>
               </Space>
+
+              <Divider style={{ margin: '4px 0' }}>时间筛选</Divider>
+
+              <Space wrap style={{ width: '100%' }}>
+                <Select
+                  value={temporalEntityType}
+                  options={TEMPORAL_ENTITY_OPTIONS}
+                  onChange={setTemporalEntityType}
+                  style={{ width: 140 }}
+                />
+                <DatePicker
+                  placeholder={temporalEntityType === 'EightDReport' ? '报告开始日期' : '事件开始日期'}
+                  onChange={handleTemporalStartChange}
+                />
+                <DatePicker
+                  placeholder={temporalEntityType === 'EightDReport' ? '报告结束日期' : '事件结束日期'}
+                  onChange={handleTemporalEndChange}
+                />
+                <Button onClick={handleStructuredSearch} loading={loading}>
+                  按时间筛选
+                </Button>
+              </Space>
+              <Text type="secondary">
+                当前支持按 {temporalEntityType === 'EightDReport' ? 'report_date' : 'occurred_at'} 做最小时间过滤。
+              </Text>
             </Space>
           </Card>
 

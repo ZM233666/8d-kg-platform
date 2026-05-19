@@ -1,6 +1,7 @@
 /** 8D 知识图谱平台 - API 封装层（v0.2） */
 
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError } from 'axios'
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import type {
   DocumentResponse,
   UploadResponse,
@@ -13,6 +14,8 @@ import type {
   GraphCentersResponse,
   DocumentListParams,
   ExtractionTriggerResponse,
+  StructuredQueryRequest,
+  StructuredQueryResponse,
 } from '../types'
 
 // =============================================================================
@@ -170,6 +173,12 @@ export const queryApi = {
   /** 语义检索相关实体 */
   search: async (query: string, topK = 10): Promise<unknown> => {
     const { data } = await api.post('/query/search', { query, topK })
+    return data
+  },
+
+  /** 结构化时间筛选 */
+  structuredSearch: async (payload: StructuredQueryRequest): Promise<StructuredQueryResponse> => {
+    const { data } = await api.post<StructuredQueryResponse>('/query/structured', payload)
     return data
   },
 

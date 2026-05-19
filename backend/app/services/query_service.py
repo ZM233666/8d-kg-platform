@@ -1,8 +1,10 @@
 """语义/关键词检索服务（v0.2：向量未接入前用关键词匹配）。"""
+
 from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from typing import Literal
 
 from neo4j import AsyncDriver
 from sqlalchemy import select
@@ -55,6 +57,152 @@ def _pick_content(props: dict) -> str:
         if isinstance(val, str) and len(val.strip()) > 4:
             return val.strip()[:500]
     return ""
+
+
+def _summary_for_structured_result(entity_type: str, props: dict) -> dict:
+    """返回结构化查询结果的摘要字段。"""
+    if entity_type == "EightDReport":
+        keys = (
+            "business_key",
+            "report_no",
+            "issue_title",
+            "report_date",
+            "closed_at",
+            "report_status",
+            "owner_name",
+            "confidence",
+            "source_doc_id",
+        )
+    elif entity_type == "ProductEvent":
+        keys = (
+            "business_key",
+            "event_id",
+            "event_code",
+            "event_type",
+            "occurred_at",
+            "severity",
+            "symptom",
+            "confidence",
+            "source_doc_id",
+        )
+    elif entity_type == "ActionItem":
+        keys = (
+            "business_key",
+            "action_id",
+            "title",
+            "action_type",
+            "status",
+            "owner_name",
+            "due_date",
+            "completed_at",
+            "confidence",
+            "source_doc_id",
+        )
+    else:
+        keys = ("business_key", "confidence", "source_doc_id")
+    return {k: props.get(k) for k in keys if props.get(k) is not None}
+
+
+def _build_structured_query(
+    *,
+    entity_type: Literal["EightDReport", "ProductEvent", "ActionItem"],
+    filters: dict,
+    page: int,
+    page_size: int,
+    sort_by: str,
+    sort_order: Literal["asc", "desc"],
+) -> tuple[str, str, dict]:
+    """构造结构化查询的 count / items Cypher。"""
+    label = entity_type
+    where_parts = [f"n:{label}"]
+    params: dict[str, object] = {
+        "skip": max(page - 1, 0) * page_size,
+        "limit": page_size,
+    }
+
+    if entity_type == "EightDReport":
+        if filters.get("report_date_from"):
+            where_parts.append(
+                "n.report_date IS NOT NULL AND datetime(n.report_date) >= datetime($report_date_from)"
+            )
+            params["report_date_from"] = filters["report_date_from"]
+        if filters.get("report_date_to"):
+            where_parts.append(
+                "n.report_date IS NOT NULL AND datetime(n.report_date) <= datetime($report_date_to)"
+            )
+            params["report_date_to"] = filters["report_date_to"]
+        if filters.get("report_status"):
+            where_parts.append("n.report_status = $report_status")
+            params["report_status"] = filters["report_status"]
+    elif entity_type == "ProductEvent":
+        if filters.get("occurred_at_from"):
+            where_parts.append(
+                "n.occurred_at IS NOT NULL AND datetime(n.occurred_at) >= datetime($occurred_at_from)"
+            )
+            params["occurred_at_from"] = filters["occurred_at_from"]
+        if filters.get("occurred_at_to"):
+            where_parts.append(
+                "n.occurred_at IS NOT NULL AND datetime(n.occurred_at) <= datetime($occurred_at_to)"
+            )
+            params["occurred_at_to"] = filters["occurred_at_to"]
+        if filters.get("event_type"):
+            where_parts.append("n.event_type = $event_type")
+            params["event_type"] = filters["event_type"]
+        if filters.get("severity"):
+            where_parts.append("n.severity = $severity")
+            params["severity"] = filters["severity"]
+    elif entity_type == "ActionItem":
+        if filters.get("completed_at_from"):
+            where_parts.append(
+                "n.completed_at IS NOT NULL AND datetime(n.completed_at) >= datetime($completed_at_from)"
+            )
+            params["completed_at_from"] = filters["completed_at_from"]
+        if filters.get("completed_at_to"):
+            where_parts.append(
+                "n.completed_at IS NOT NULL AND datetime(n.completed_at) <= datetime($completed_at_to)"
+            )
+            params["completed_at_to"] = filters["completed_at_to"]
+        if filters.get("action_status"):
+            where_parts.append("n.status = $action_status")
+            params["action_status"] = filters["action_status"]
+        if filters.get("action_type"):
+            where_parts.append("n.action_type = $action_type")
+            params["action_type"] = filters["action_type"]
+
+    if entity_type == "EightDReport":
+        if filters.get("closed_at_from"):
+            where_parts.append(
+                "n.closed_at IS NOT NULL AND datetime(n.closed_at) >= datetime($closed_at_from)"
+            )
+            params["closed_at_from"] = filters["closed_at_from"]
+        if filters.get("closed_at_to"):
+            where_parts.append(
+                "n.closed_at IS NOT NULL AND datetime(n.closed_at) <= datetime($closed_at_to)"
+            )
+            params["closed_at_to"] = filters["closed_at_to"]
+
+    where_clause = " AND ".join(where_parts)
+    order = "ASC" if sort_order == "asc" else "DESC"
+    sort_field = sort_by
+
+    count_query = f"""
+    MATCH (n)
+    WHERE {where_clause}
+    RETURN count(n) AS total
+    """
+
+    items_query = f"""
+    MATCH (n)
+    WHERE {where_clause}
+    RETURN n.business_key AS business_key,
+           labels(n)[0] AS entity_type,
+           properties(n) AS props
+    ORDER BY n.{sort_field} {order}, n.updated_at DESC
+    SKIP $skip
+    LIMIT $limit
+    """
+
+    return count_query, items_query, params
 
 
 async def search_entities_neo4j(
@@ -173,3 +321,58 @@ async def search(
         if len(out) >= top_k:
             break
     return out
+
+
+async def structured_query(
+    *,
+    driver: AsyncDriver,
+    entity_type: Literal["EightDReport", "ProductEvent"],
+    filters: dict,
+    page: int = 1,
+    page_size: int = 20,
+    sort_by: str = "updated_at",
+    sort_order: Literal["asc", "desc"] = "desc",
+) -> dict:
+    """最小结构化查询：先支持时间范围过滤。"""
+    count_query, items_query, params = _build_structured_query(
+        entity_type=entity_type,
+        filters=filters,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    async with driver.session() as session:
+        count_result = await session.run(count_query, params)
+        count_row = await count_result.single()
+        total = int(count_row["total"]) if count_row else 0
+
+        items_result = await session.run(items_query, params)
+        rows = [dict(r) async for r in items_result]
+
+    items = []
+    for row in rows:
+        props = dict(row.get("props") or {})
+        items.append(
+            {
+                "business_key": row.get("business_key"),
+                "entity_type": row.get("entity_type") or entity_type,
+                "summary": _summary_for_structured_result(entity_type, props),
+                "confidence": props.get("confidence"),
+                "source_doc_id": props.get("source_doc_id"),
+            }
+        )
+
+    return {
+        "entity_type": entity_type,
+        "items": items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+        },
+        "query_metrics": {
+            "cypher_template_id": f"structured_{entity_type.lower()}_temporal_v1",
+        },
+    }

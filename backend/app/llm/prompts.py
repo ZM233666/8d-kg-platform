@@ -2,7 +2,14 @@
 
 旧 v0.1 多段 prompt（DEFECT_/RCA_/ACTION_/VERIFICATION_/CLOSURE_）已在 B4 弃用。
 """
+
 from __future__ import annotations
+
+from collections.abc import Iterable
+from functools import lru_cache
+from pathlib import Path
+
+SKILL_TEMPLATE_DIR = Path(__file__).with_name("skill_templates")
 
 EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。给定一份 8D 报告原文，请输出一个严格符合下面 schema 的 JSON 对象，**不要输出任何解释、注释、markdown 代码块或 <think> 内容**，**直接输出 JSON**。
 
@@ -28,14 +35,14 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
 
 1) EightDReport（顶层 "report"）
    必填: business_key（=report_no）, report_no, issue_title
-   可选: report_status, d2_problem_statement,
+   可选: report_date(ISO 日期), closed_at(ISO 日期，仅在原文明确写出结案/关闭时间时填写), report_status, d2_problem_statement,
          d4_root_cause_summary, d5_permanent_correction_summary, d7_prevention_summary,
          owner_name, owner_role, supporting_chunks(默认[])
    ❌ 不要用 d4_root_cause / d5_corrective_action / d7_preventive_action 这些字段名！必须带 _summary 后缀。
 
 2) ProductEvent（顶层 "event"）
    必填: business_key（=event_id）, event_id
-   可选: event_code, event_type, severity, symptom, event_time(ISO 日期), status, reporter_name, supporting_chunks
+   可选: event_code, event_type, severity, symptom, occurred_at(ISO 日期), status, reporter_name, supporting_chunks
 
 3) FailureMode（数组 "failure_modes"）
    必填: business_key（=mode_code）, mode_code, mode_name
@@ -49,7 +56,7 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
 5) ActionItem（数组 "actions"）
    必填: business_key（=action_id）, action_id, title, action_type
    action_type 取值: "临时D3" | "纠正D5" | "预防D7"
-   可选: status, owner_name, due_date(ISO 日期), supporting_chunks
+   可选: status, owner_name, due_date(ISO 日期), completed_at(ISO 日期，仅在原文明确写出完成/关闭/实施完成时间时填写), supporting_chunks
 
 6) ProductInstance（数组 "product_instances"，无则给 []）
    必填: business_key（=serial_number）, serial_number
@@ -101,7 +108,7 @@ ProductInstance, PartSerial, Organization
   - INSTALLED_ON           : PartSerial -> ProductInstance（零件装在产品上）
 
 组织/供应：
-  - RESPONSIBLE_ORG        : EightDReport -> Organization（责任部门/客户）
+  - RESPONSIBLE_ORG        : EightDReport/ActionItem -> Organization（报告责任组织 / 措施责任组织）
   - SUPPLIED_BY            : PartSerial -> Organization（供应商）
 
 治理（一般 LLM 不要直接输出，留空即可）：
@@ -114,12 +121,21 @@ ProductInstance, PartSerial, Organization
    - "INVOLVES_PRODUCT" / "INVOLVES_PART" → 用 AFFECTED_PRODUCT / AFFECTED_SERIAL
    - "REPORTED_BY" / "OWNED_BY" → 不要输出此类关系（信息保留在实体的 owner_name/reporter_name 字段里）
 
+================ 时间字段保守规则 ================
+- 只有原文明确出现的业务时间才填写：例如“发生于 2022-08-19”“于 2022-09-02 关闭”“已于 2022-08-25 完成整改”。
+- `report_date` 是报告日期，不等于故障发生时间。
+- `closed_at` 是报告关闭/结案时间；没有明确日期就填 null，不要根据 `report_status=关闭` 猜日期。
+- `completed_at` 是措施实际完成时间；`due_date` 是计划完成时间，二者不能混用。
+- 没有明确时间就输出 null，不允许根据 created_at、段落顺序、状态词、due_date 去推断完成/关闭时间。
+
 ================ 完整示例（照此结构输出，字段一字不差，rel_type 全部来自白名单）================
 {
   "report": {
     "business_key": "FS-2024-001",
     "report_no": "FS-2024-001",
     "issue_title": "EP2002 阀门出厂测试密封面泄漏",
+    "report_date": "2026-04-10T00:00:00Z",
+    "closed_at": "2026-04-25T00:00:00Z",
     "report_status": "进行中",
     "d2_problem_statement": "EP2002 控制阀密封面渗油，泄漏速率超 ISO 5208 Class A。",
     "d4_root_cause_summary": "O 型圈材质硬度未达图纸要求。",
@@ -136,7 +152,7 @@ ProductInstance, PartSerial, Organization
     "event_type": "出厂测试故障",
     "severity": "高",
     "symptom": "阀门密封面渗油",
-    "event_time": "2026-04-10",
+    "occurred_at": "2026-04-10T00:00:00Z",
     "status": "处理中",
     "reporter_name": "客户QA-王经理",
     "supporting_chunks": []
@@ -148,9 +164,9 @@ ProductInstance, PartSerial, Organization
     {"business_key": "CAU-FS-2024-001-1", "cause_id": "CAU-FS-2024-001-1", "title": "O 型圈硬度低于图纸要求", "cause_type": "根本原因", "is_verified": true, "evidence": "硬度检测报告 H-2026-0410", "supporting_chunks": []}
   ],
   "actions": [
-    {"business_key": "ACT-FS-2024-001-1", "action_id": "ACT-FS-2024-001-1", "title": "隔离同批次阀门加严测试", "action_type": "临时D3", "status": "完成", "owner_name": "赵工", "due_date": "2026-04-12", "supporting_chunks": []},
-    {"business_key": "ACT-FS-2024-001-2", "action_id": "ACT-FS-2024-001-2", "title": "更换 Viton O 型圈", "action_type": "纠正D5", "status": "完成", "owner_name": "李工", "due_date": "2026-04-20", "supporting_chunks": []},
-    {"business_key": "ACT-FS-2024-001-3", "action_id": "ACT-FS-2024-001-3", "title": "来料 100% 硬度检验", "action_type": "预防D7", "status": "进行中", "owner_name": "王工", "due_date": "2026-05-30", "supporting_chunks": []}
+    {"business_key": "ACT-FS-2024-001-1", "action_id": "ACT-FS-2024-001-1", "title": "隔离同批次阀门加严测试", "action_type": "临时D3", "status": "完成", "owner_name": "赵工", "due_date": "2026-04-12", "completed_at": "2026-04-11T18:00:00Z", "supporting_chunks": []},
+    {"business_key": "ACT-FS-2024-001-2", "action_id": "ACT-FS-2024-001-2", "title": "更换 Viton O 型圈", "action_type": "纠正D5", "status": "完成", "owner_name": "李工", "due_date": "2026-04-20", "completed_at": "2026-04-19T09:30:00Z", "supporting_chunks": []},
+    {"business_key": "ACT-FS-2024-001-3", "action_id": "ACT-FS-2024-001-3", "title": "来料 100% 硬度检验", "action_type": "预防D7", "status": "进行中", "owner_name": "王工", "due_date": "2026-05-30", "completed_at": null, "supporting_chunks": []}
   ],
   "product_instances": [],
   "part_serials": [
@@ -197,3 +213,57 @@ EXTRACTION_USER_TEMPLATE = """报告标识: {report_id}
 4. 每个实体必须带 business_key。
 5. 直接输出 JSON，不要任何额外文字。
 """
+
+
+@lru_cache(maxsize=32)
+def load_skill_template(template_name: str) -> str:
+    """读取 Codex skill 模块模板。"""
+    path = SKILL_TEMPLATE_DIR / f"{template_name}.md"
+    if not path.exists():
+        raise FileNotFoundError(f"Skill template not found: {path}")
+    return path.read_text(encoding="utf-8").strip()
+
+
+def build_codex_system_prompt(
+    *,
+    skill_name: str,
+    skill_version: str,
+    route_name: str,
+    execution_mode: str,
+    prompt_modules: Iterable[str] = (),
+) -> str:
+    """为 Codex 本地抽取服务拼装模块化 system prompt。
+
+    设计原则：
+    - 继续沿用当前 runtime 的严格 JSON schema / 关系白名单约束
+    - 再附加 v0.3 技能模块，让 Codex 在不破坏现有 schema 的前提下应用更细的判别规则
+    """
+
+    modules = tuple(prompt_modules)
+    sections: list[str] = [
+        EXTRACTION_SYSTEM.strip(),
+        (
+            "================ Codex Skill Runtime ================\n"
+            f"skill_name: {skill_name}\n"
+            f"skill_version: {skill_version}\n"
+            f"route_name: {route_name}\n"
+            f"execution_mode: {execution_mode}\n"
+            "说明：下面追加的是模块化 skill 规则。若模块规则与当前 runtime schema / "
+            "当前允许的 rel_type 冲突，以当前 runtime schema 为准。"
+        ),
+    ]
+
+    for module_name in modules:
+        sections.append(
+            f"================ Skill Module: {module_name} ================\n"
+            f"{load_skill_template(module_name)}"
+        )
+
+    sections.append(
+        "================ Codex Final Reminder ================\n"
+        "你可以使用附加模块进行内部推理，但最终只输出当前 runtime 支持的 ExtractionResult JSON。\n"
+        "不要输出 Person、原始时间辅助字段、timePrecision、LEADS_TO、RELATED_PART、"
+        "RELATED_EVENT、TARGET_PART、REPORTED_BY_PERSON、REPORTED_BY_ORG "
+        "等当前 schema / rel_type 白名单之外的结构。"
+    )
+    return "\n\n".join(sections)

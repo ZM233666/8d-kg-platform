@@ -1,0 +1,53 @@
+{
+  "name": "temporal_ambiguity_dual_stage",
+  "context": {
+    "minio_key": "documents/fs-reg-003.docx",
+    "report_id_hint": "FS-REG-003",
+    "chunks": [
+      {
+        "chunk_id": "FS-REG-003#D2#1",
+        "report_id": "FS-REG-003",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "设备装机三个月后出现密封面渗油，客户要求发起问题分析。",
+        "token_count": 24
+      },
+      {
+        "chunk_id": "FS-REG-003#D5#1",
+        "report_id": "FS-REG-003",
+        "section_path": ["D5", "纠正措施"],
+        "para_idx": 1,
+        "chunk_role": "action",
+        "text": "要求月底前完成 O 型圈更换，并跟踪整改结果。",
+        "token_count": 20
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REG-003",
+      "report_no": "FS-REG-003",
+      "issue_title": "装机后三个月密封面渗油",
+      "d2_problem_statement": "设备装机三个月后出现密封面渗油。",
+      "d5_permanent_correction_summary": "更换 O 型圈并跟踪整改结果。"
+    },
+    "event": {
+      "business_key": "EVT-FS-REG-003",
+      "event_id": "EVT-FS-REG-003",
+      "event_type": "故障",
+      "symptom": "装机后三个月出现密封面渗油",
+      "reporter_name": "客户QA"
+    },
+    "actions": [
+      {
+        "business_key": "ACT-REG-003-1",
+        "action_id": "ACT-REG-003-1",
+        "title": "更换 O 型圈并跟踪整改结果",
+        "action_type": "纠正D5",
+        "owner_name": "王工"
+      }
+    ],
+    "relationships": []
+  }
+}

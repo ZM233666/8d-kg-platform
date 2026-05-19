@@ -6,24 +6,27 @@
 - 字段命名 snake_case
 - 只有 business_key 主键字段必填，其余业务字段均可选（LLM 抽不到就为 None）
 """
+
 from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from app.schemas.base import BaseEvent, BaseNode
-
 
 # =============================================================================
 # 核心实体（每份 8D 报告至少 1 个）
 # =============================================================================
+
 
 class EightDReport(BaseNode):
     """8D 报告。business_key 约定填充 report_no。"""
 
     report_no: str = Field(..., description="8D 编号，对应 business_key")
     issue_title: str | None = Field(None, description="问题标题")
+    report_date: datetime | None = Field(None, description="报告日期")
+    closed_at: datetime | None = Field(None, description="报告关闭时间；原文未明确则为空")
     report_status: str | None = Field(None, description="报告状态：草稿/进行中/关闭")
     d2_problem_statement: str | None = Field(None, description="D2 问题描述")
     d4_root_cause_summary: str | None = Field(None, description="D4 根因分析摘要")
@@ -41,7 +44,11 @@ class ProductEvent(BaseEvent):
     event_type: str | None = Field(None, description="故障/异常/客诉/试验")
     severity: str | None = Field(None, description="严重级别")
     symptom: str | None = Field(None, description="现象描述")
-    event_time: str | None = Field(None, description="发生时间（ISO 字符串）")
+    occurred_at: datetime | None = Field(
+        default=None,
+        validation_alias=AliasChoices("occurred_at", "event_time"),
+        description="事件发生时间",
+    )
     status: str | None = Field(None, description="处理状态")
     reporter_name: str | None = Field(None, description="上报人姓名")
 
@@ -72,19 +79,21 @@ class ActionItem(BaseNode):
     action_type: str | None = Field(None, description="措施类型：临时D3/纠正D5/预防D7/根因分析D4")
     status: str | None = Field(None, description="状态：计划中/进行中/完成")
     owner_name: str | None = Field(None, description="负责人姓名")
-    due_date: str | None = Field(None, description="计划完成日期（ISO 字符串）")
+    due_date: datetime | None = Field(None, description="计划完成日期")
+    completed_at: datetime | None = Field(None, description="实际完成时间；原文未明确则为空")
 
 
 # =============================================================================
 # 可选实体（LLM 抽不出来时不创建）
 # =============================================================================
 
+
 class ProductInstance(BaseNode):
     """产品实例。business_key 约定填充 serial_number。"""
 
     serial_number: str = Field(..., description="产品序列号，对应 business_key")
     asset_code: str | None = None
-    commission_date: str | None = None
+    commission_date: datetime | None = Field(None, description="投运日期")
     status: str | None = None
     owner_name: str | None = Field(None, description="所属客户名称")
     site_city: str | None = None
@@ -114,12 +123,15 @@ class Organization(BaseNode):
 # 治理实体
 # =============================================================================
 
+
 class Chunk(BaseModel):
     """文档分块。治理实体，字段沿用 v1 命名以保持 s2_split 与 pg_writer 兼容。"""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    chunk_id: str = Field(..., description="对应 business_key，格式 {report_id}#{section}#{para_idx}")
+    chunk_id: str = Field(
+        ..., description="对应 business_key，格式 {report_id}#{section}#{para_idx}"
+    )
     report_id: str = Field(..., description="所属报告 ID（业务键，等于 EightDReport.report_no）")
     section_path: list[str] = Field(default_factory=list)
     para_idx: int = Field(..., description="段落索引")

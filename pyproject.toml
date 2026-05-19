@@ -93,6 +93,9 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-v --cov=app --cov-report=term-missing"
+markers = [
+    "integration: requires live Codex service and tunnelled PostgreSQL/Neo4j services",
+]
 
 [tool.coverage.run]
 source = ["app"]

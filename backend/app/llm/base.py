@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -40,6 +40,7 @@ class LLMClient(Protocol):
         response_model: type[T],
         max_tokens: int = 4096,
         temperature: float = 0.1,
+        request_context: dict[str, Any] | None = None,
     ) -> tuple[T, LLMUsage]:
         """返回 (Pydantic 实例, usage)。"""
         ...

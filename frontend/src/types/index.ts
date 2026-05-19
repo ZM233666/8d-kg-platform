@@ -44,6 +44,7 @@ export interface BaseNode {
 export interface EightDReport extends BaseNode {
   report_no: string
   issue_title?: string | null
+  report_date?: string | null
   report_status?: string | null
   d2_problem_statement?: string | null
   d4_root_cause_summary?: string | null
@@ -60,7 +61,7 @@ export interface ProductEvent extends BaseNode {
   event_type?: string | null
   severity?: string | null
   symptom?: string | null
-  event_time?: string | null
+  occurred_at?: string | null
   status?: string | null
   reporter_name?: string | null
 }
@@ -365,6 +366,48 @@ export interface ExtractionTriggerResponse {
   document_id: string
   status: string
   message: string
+}
+
+export type StructuredQueryEntityType = 'EightDReport' | 'ProductEvent'
+
+export interface StructuredQueryFilters {
+  report_date_from?: string
+  report_date_to?: string
+  report_status?: string
+  occurred_at_from?: string
+  occurred_at_to?: string
+  event_type?: string
+  severity?: string
+}
+
+export interface StructuredQueryRequest {
+  entity_type: StructuredQueryEntityType
+  filters?: StructuredQueryFilters
+  page?: number
+  page_size?: number
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+export interface StructuredQueryItem {
+  business_key: string
+  entity_type: StructuredQueryEntityType
+  summary?: string | null
+  confidence?: number | null
+  source_doc_id?: string | null
+}
+
+export interface StructuredQueryResponse {
+  entity_type: StructuredQueryEntityType
+  items: StructuredQueryItem[]
+  pagination: {
+    page: number
+    page_size: number
+    total: number
+  }
+  query_metrics: {
+    cypher_template_id: string
+  }
 }
 
 // =============================================================================

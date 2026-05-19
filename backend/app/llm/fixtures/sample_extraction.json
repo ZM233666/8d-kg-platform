@@ -7,6 +7,8 @@
     "business_key": "FS-2024-001",
     "report_no": "FS-2024-001",
     "issue_title": "EP2002 阀门出厂测试密封面泄漏",
+    "report_date": "2026-04-10T00:00:00Z",
+    "closed_at": "2026-04-25T00:00:00Z",
     "report_status": "进行中",
     "d2_problem_statement": "EP2002 控制阀在客户出厂验收测试中，密封面发现微量渗油，泄漏速率超出 ISO 5208 Class A 标准。",
     "d4_root_cause_summary": "O 型圈材质硬度未达图纸要求（HS 75±5 实测 HS 62），来料检验缺失硬度项。",
@@ -23,7 +25,7 @@
     "event_type": "出厂测试故障",
     "severity": "高",
     "symptom": "阀门密封面渗油，泄漏速率 > ISO 5208 Class A",
-    "event_time": "2026-04-10",
+    "occurred_at": "2026-04-10T00:00:00Z",
     "status": "处理中",
     "reporter_name": "客户QA-王经理",
     "supporting_chunks": []
@@ -57,6 +59,7 @@
       "status": "完成",
       "owner_name": "李工",
       "due_date": "2026-04-20",
+      "completed_at": "2026-04-19T09:30:00Z",
       "supporting_chunks": []
     },
     {
@@ -67,6 +70,7 @@
       "status": "进行中",
       "owner_name": "王工",
       "due_date": "2026-05-30",
+      "completed_at": null,
       "supporting_chunks": []
     },
     {
@@ -77,6 +81,7 @@
       "status": "完成",
       "owner_name": "赵工",
       "due_date": "2026-04-12",
+      "completed_at": "2026-04-11T18:00:00Z",
       "supporting_chunks": []
     }
   ],

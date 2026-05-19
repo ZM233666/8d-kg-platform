@@ -1,0 +1,102 @@
+{
+  "name": "mixed_mainline_report",
+  "context": {
+    "minio_key": "documents/fs-reg-002.docx",
+    "report_id_hint": "FS-REG-002",
+    "chunks": [
+      {
+        "chunk_id": "FS-REG-002#D2#1",
+        "report_id": "FS-REG-002",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "客户反馈 EP2002 阀在出厂测试时密封面渗油，泄漏速率超出标准。",
+        "token_count": 26
+      },
+      {
+        "chunk_id": "FS-REG-002#D4#1",
+        "report_id": "FS-REG-002",
+        "section_path": ["D4", "根因分析"],
+        "para_idx": 1,
+        "chunk_role": "hypothesis",
+        "text": "分析认为 O 型圈硬度低于图纸要求，导致密封失效。",
+        "token_count": 20
+      },
+      {
+        "chunk_id": "FS-REG-002#D5#1",
+        "report_id": "FS-REG-002",
+        "section_path": ["D5", "纠正措施"],
+        "para_idx": 1,
+        "chunk_role": "action",
+        "text": "更换为 Viton 材质 O 型圈，并对同批次产品加严筛查。",
+        "token_count": 24
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REG-002",
+      "report_no": "FS-REG-002",
+      "issue_title": "EP2002 阀出厂测试密封泄漏",
+      "d2_problem_statement": "EP2002 阀在出厂测试时密封面渗油。",
+      "d4_root_cause_summary": "O 型圈硬度低于图纸要求。",
+      "d5_permanent_correction_summary": "更换为 Viton 材质 O 型圈。"
+    },
+    "event": {
+      "business_key": "EVT-FS-REG-002",
+      "event_id": "EVT-FS-REG-002",
+      "event_type": "试验",
+      "symptom": "密封面渗油",
+      "status": "处理中",
+      "reporter_name": "吴重人"
+    },
+    "failure_modes": [
+      {
+        "business_key": "FM-REG-002",
+        "mode_code": "FM-REG-002",
+        "mode_name": "O 型圈密封失效"
+      }
+    ],
+    "causes": [
+      {
+        "business_key": "CAU-REG-002-1",
+        "cause_id": "CAU-REG-002-1",
+        "title": "O 型圈硬度低于图纸要求",
+        "cause_type": "根本原因",
+        "is_verified": true
+      }
+    ],
+    "actions": [
+      {
+        "business_key": "ACT-REG-002-1",
+        "action_id": "ACT-REG-002-1",
+        "title": "更换为 Viton 材质 O 型圈",
+        "action_type": "纠正D5"
+      },
+      {
+        "business_key": "ACT-REG-002-2",
+        "action_id": "ACT-REG-002-2",
+        "title": "对同批次产品加严筛查",
+        "action_type": "临时D3"
+      }
+    ],
+    "part_serials": [
+      {
+        "business_key": "OR-REG-002::B2026-04",
+        "part_key": "OR-REG-002::B2026-04",
+        "serial_number": "OR-REG-002",
+        "batch_no": "B2026-04",
+        "supplier_name": "苏州某密封件供应商"
+      }
+    ],
+    "organizations": [
+      {
+        "business_key": "ORG-SUP-REG-002",
+        "org_code": "ORG-SUP-REG-002",
+        "org_name": "苏州某密封件供应商",
+        "org_type": "供应商"
+      }
+    ],
+    "relationships": []
+  }
+}

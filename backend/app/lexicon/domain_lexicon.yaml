@@ -37,6 +37,16 @@ synonyms:
   - canonical: "化学成分分析"
     aliases: ["成分分析", "chemical analysis"]
 
+organization_aliases:
+  - canonical_code: "ORG-KB-SUZHOU"
+    canonical_name: "Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd."
+    org_type: "公司"
+    aliases:
+      - "克诺尔苏州"
+      - "Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd."
+      - "Knorr-Bremse Suzhou"
+      - "KB苏州"
+
 negation_markers:
   # 中文否定词（用于 Finding.polarity 判定）
   - "未发现"
@@ -157,6 +167,23 @@ chapter_role_mapping:
   preventive_action: action
   verification: conclusion
   closure: conclusion
+
+sub_section_role_overrides:
+  # 子章节优先级高于父章节，避免根因章节下所有内容都落成 hypothesis
+  "结构": background
+  "功能": background
+  "介绍": background
+  "背景": background
+  "初始调节压力确认": evidence
+  "功能检测": evidence
+  "拆解检查": evidence
+  "调查分析": evidence
+  "对比实验分析": evidence
+  "实验方法": evidence
+  "实验数据": evidence
+  "风险分析": conclusion
+  "实验结论": conclusion
+  "分析汇总": conclusion
 
 table_patterns:
   # 5 类预定义表，required_headers 全部命中（子串匹配，大小写不敏感）才归类

@@ -1,0 +1,72 @@
+{
+  "name": "real_foshan_spring_fracture_derived",
+  "source_kind": "real_derived",
+  "source_document": "/Users/God-Prime/Desktop/KnowledgeGraph/8d-kg-platform/docs_for_test/8D _佛山南海弹簧断裂分析报告_V0.0.doc",
+  "deidentification": "项目名称、客户、负责人、电话等已脱敏；保留了真实报告中的 D2、D4 和 D5 行文方式，用于验证弱根因场景下的保守抽取。",
+  "context": {
+    "minio_key": "documents/fs-real-002.docx",
+    "report_id_hint": "FS-REAL-002",
+    "chunks": [
+      {
+        "chunk_id": "FS-REAL-002#D2#1",
+        "report_id": "FS-REAL-002",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "某有轨电车项目 T13、T11 及 T16 车日检发现磁轨弹簧断裂，运营里程约 23 万至 33 万公里。断口靠近端部，宏观可见海滩花样疲劳弧线。",
+        "token_count": 42
+      },
+      {
+        "chunk_id": "FS-REAL-002#D4#1",
+        "report_id": "FS-REAL-002",
+        "section_path": ["D4", "根本原因分析"],
+        "para_idx": 1,
+        "chunk_role": "hypothesis",
+        "text": "化学成分、显微组织、非金属夹杂物及硬度检测均未见异常。根据断口宏观及微观特征判断，送检弹簧的失效性质为疲劳断裂。",
+        "token_count": 34
+      },
+      {
+        "chunk_id": "FS-REAL-002#D5#1",
+        "report_id": "FS-REAL-002",
+        "section_path": ["D5", "纠正措施"],
+        "para_idx": 1,
+        "chunk_role": "action",
+        "text": "更换断裂弹簧，确保现场备件充足；建议进一步确认现场弹簧过载来源。",
+        "token_count": 23
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REAL-002",
+      "report_no": "FS-REAL-002",
+      "issue_title": "磁轨弹簧断裂调查",
+      "d2_problem_statement": "日检发现多台车磁轨弹簧断裂，断口可见疲劳弧线。",
+      "d4_root_cause_summary": "现阶段检测未发现材料和组织异常，仅能确认失效性质为疲劳断裂。",
+      "d5_permanent_correction_summary": "更换断裂弹簧，并建议进一步确认现场过载来源。"
+    },
+    "event": {
+      "business_key": "EVT-FS-REAL-002",
+      "event_id": "EVT-FS-REAL-002",
+      "event_type": "故障",
+      "symptom": "日检发现磁轨弹簧断裂",
+      "reporter_name": "现场检查团队"
+    },
+    "failure_modes": [
+      {
+        "business_key": "FM-REAL-002",
+        "mode_code": "FM-REAL-002",
+        "mode_name": "弹簧疲劳断裂"
+      }
+    ],
+    "actions": [
+      {
+        "business_key": "ACT-REAL-002-1",
+        "action_id": "ACT-REAL-002-1",
+        "title": "更换断裂弹簧，确保现场备件充足",
+        "action_type": "临时D3"
+      }
+    ],
+    "relationships": []
+  }
+}

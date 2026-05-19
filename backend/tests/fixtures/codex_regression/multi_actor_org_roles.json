@@ -1,0 +1,113 @@
+{
+  "name": "multi_actor_org_roles",
+  "context": {
+    "minio_key": "documents/fs-reg-004.docx",
+    "report_id_hint": "FS-REG-004",
+    "chunks": [
+      {
+        "chunk_id": "FS-REG-004#D2#1",
+        "report_id": "FS-REG-004",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "客户 QA 反馈 EP2002 阀门在验收测试中泄漏，供应商批次件需同步排查。",
+        "token_count": 28
+      },
+      {
+        "chunk_id": "FS-REG-004#D5#1",
+        "report_id": "FS-REG-004",
+        "section_path": ["D5", "纠正措施"],
+        "para_idx": 1,
+        "chunk_role": "action",
+        "text": "由质量部负责推动更换密封件，并要求供应商提交材质复验报告。",
+        "token_count": 25
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REG-004",
+      "report_no": "FS-REG-004",
+      "issue_title": "验收测试泄漏问题",
+      "d2_problem_statement": "客户 QA 反馈验收测试中泄漏。",
+      "d5_permanent_correction_summary": "质量部推动更换密封件，并要求供应商提交复验报告。"
+    },
+    "event": {
+      "business_key": "EVT-FS-REG-004",
+      "event_id": "EVT-FS-REG-004",
+      "event_type": "客诉",
+      "symptom": "验收测试中泄漏",
+      "reporter_name": "客户QA"
+    },
+    "actions": [
+      {
+        "business_key": "ACT-REG-004-1",
+        "action_id": "ACT-REG-004-1",
+        "title": "更换密封件并提交材质复验报告",
+        "action_type": "纠正D5",
+        "owner_name": "质量部",
+        "supporting_chunks": [
+          "FS-REG-004#D5#1"
+        ]
+      }
+    ],
+    "part_serials": [
+      {
+        "business_key": "OR-REG-004::B2026-05",
+        "part_key": "OR-REG-004::B2026-05",
+        "serial_number": "OR-REG-004",
+        "batch_no": "B2026-05"
+      }
+    ],
+    "organizations": [
+      {
+        "business_key": "ORG-CUST-004",
+        "org_code": "ORG-CUST-004",
+        "org_name": "克诺尔苏州",
+        "org_type": "客户"
+      },
+      {
+        "business_key": "ORG-SUP-004",
+        "org_code": "ORG-SUP-004",
+        "org_name": "苏州某密封件供应商",
+        "org_type": "供应商"
+      },
+      {
+        "business_key": "ORG-QA-004",
+        "org_code": "ORG-QA-004",
+        "org_name": "质量部",
+        "org_type": "部门"
+      }
+    ],
+    "relationships": [
+      {
+        "from_label": "ProductEvent",
+        "from_key": "EVT-FS-REG-004",
+        "to_label": "EightDReport",
+        "to_key": "FS-REG-004",
+        "rel_type": "HAS_8D_REPORT"
+      },
+      {
+        "from_label": "ActionItem",
+        "from_key": "ACT-REG-004-1",
+        "to_label": "Organization",
+        "to_key": "ORG-QA-004",
+        "rel_type": "RESPONSIBLE_ORG"
+      },
+      {
+        "from_label": "PartSerial",
+        "from_key": "OR-REG-004::B2026-05",
+        "to_label": "Organization",
+        "to_key": "ORG-SUP-004",
+        "rel_type": "SUPPLIED_BY"
+      },
+      {
+        "from_label": "ProductEvent",
+        "from_key": "EVT-FS-REG-004",
+        "to_label": "Organization",
+        "to_key": "ORG-CUST-004",
+        "rel_type": "RESPONSIBLE_ORG"
+      }
+    ]
+  }
+}

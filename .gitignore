@@ -38,6 +38,7 @@ htmlcov/
 logs/
 node_modules/
 frontend/pnpm-lock.yaml
+docs_for_test/
 Thumbs.db
 tmp/
 venv/

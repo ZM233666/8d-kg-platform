@@ -1,0 +1,120 @@
+{
+  "name": "real_ep2002_secondary_regulator_derived",
+  "source_kind": "real_derived",
+  "source_document": "/Users/God-Prime/Desktop/KnowledgeGraph/8d-kg-platform/docs_for_test/8D_EP2002阀Secondary regulator out of range故障调查报告_01.docx",
+  "deidentification": "项目线别、车号、客户、供应商、序列号均已改写为通用占位；保留了真实报告中的 D2/D4/D5 语义结构和问题链条。",
+  "context": {
+    "minio_key": "documents/fs-real-001.docx",
+    "report_id_hint": "FS-REAL-001",
+    "chunks": [
+      {
+        "chunk_id": "FS-REAL-001#D2#1",
+        "report_id": "FS-REAL-001",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "某地铁项目 A030 车在库内静调时首次上电自检失败，制动系统报“secondary regulator out of range（二级调节器压力超差）”故障。后续累计发生 5 起，均为首次自检时报出故障。",
+        "token_count": 43
+      },
+      {
+        "chunk_id": "FS-REAL-001#D4#1",
+        "report_id": "FS-REAL-001",
+        "section_path": ["D4", "根本原因分析"],
+        "para_idx": 1,
+        "chunk_role": "hypothesis",
+        "text": "拆解二级调节器后发现活塞销弯曲变形，进一步检查发现塑料活塞销表面存在孔洞。对比试验表明，表面存在气孔的活塞销在相同外部压力下变形量更大。根本原因：塑料活塞销存在气孔导致强度变弱，持续受力后发生变形，引起二级调节器实际压力变小，最终出现压力超差现象。",
+        "token_count": 72
+      },
+      {
+        "chunk_id": "FS-REAL-001#D5#1",
+        "report_id": "FS-REAL-001",
+        "section_path": ["D5", "纠正措施"],
+        "para_idx": 1,
+        "chunk_role": "action",
+        "text": "对故障 EP2002 阀立即更换；对库存活塞销进行 100% 外观检；出货前增加二级调节器压力检测项点，不达标全部返工；供应商更新活塞销生产模具及排气改善方案。",
+        "token_count": 55
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REAL-001",
+      "report_no": "FS-REAL-001",
+      "issue_title": "EP2002 阀二级调节器压力超差故障",
+      "d2_problem_statement": "首次上电自检时报出二级调节器压力超差故障，后续累计发生 5 起。",
+      "d4_root_cause_summary": "塑料活塞销存在气孔导致强度变弱并持续受力变形，最终引起二级调节器压力超差。",
+      "d5_permanent_correction_summary": "更换故障阀、增加外观检和出货检测，并推进供应商工艺改善。"
+    },
+    "event": {
+      "business_key": "EVT-FS-REAL-001",
+      "event_id": "EVT-FS-REAL-001",
+      "event_type": "试验",
+      "symptom": "首次上电自检时报二级调节器压力超差故障",
+      "reporter_name": "客户调试团队"
+    },
+    "failure_modes": [
+      {
+        "business_key": "FM-REAL-001",
+        "mode_code": "FM-REAL-001",
+        "mode_name": "二级调节器压力超差"
+      }
+    ],
+    "causes": [
+      {
+        "business_key": "CAU-REAL-001-1",
+        "cause_id": "CAU-REAL-001-1",
+        "title": "塑料活塞销存在气孔导致强度变弱并持续受力变形",
+        "cause_type": "根本原因",
+        "is_verified": true,
+        "evidence": "拆解检查发现活塞销弯曲变形，对比试验表明存在气孔时变形量显著增大。"
+      }
+    ],
+    "actions": [
+      {
+        "business_key": "ACT-REAL-001-1",
+        "action_id": "ACT-REAL-001-1",
+        "title": "立即更换故障 EP2002 阀",
+        "action_type": "临时D3"
+      },
+      {
+        "business_key": "ACT-REAL-001-2",
+        "action_id": "ACT-REAL-001-2",
+        "title": "对库存活塞销进行 100% 外观检",
+        "action_type": "纠正D5"
+      },
+      {
+        "business_key": "ACT-REAL-001-3",
+        "action_id": "ACT-REAL-001-3",
+        "title": "出货前增加二级调节器压力检测项点，不达标全部返工",
+        "action_type": "预防D7"
+      },
+      {
+        "business_key": "ACT-REAL-001-4",
+        "action_id": "ACT-REAL-001-4",
+        "title": "更新活塞销生产模具及排气改善方案",
+        "action_type": "纠正D5",
+        "owner_name": "某活塞销供应商",
+        "supporting_chunks": [
+          "FS-REAL-001#D5#1"
+        ]
+      }
+    ],
+    "organizations": [
+      {
+        "business_key": "ORG-REAL-001-SUP",
+        "org_code": "ORG-REAL-001-SUP",
+        "org_name": "某活塞销供应商",
+        "org_type": "供应商"
+      }
+    ],
+    "relationships": [
+      {
+        "from_label": "ActionItem",
+        "from_key": "ACT-REAL-001-4",
+        "to_label": "Organization",
+        "to_key": "ORG-REAL-001-SUP",
+        "rel_type": "RESPONSIBLE_ORG"
+      }
+    ]
+  }
+}

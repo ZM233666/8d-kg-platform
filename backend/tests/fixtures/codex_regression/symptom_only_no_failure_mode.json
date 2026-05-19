@@ -1,0 +1,41 @@
+{
+  "name": "symptom_only_no_failure_mode",
+  "context": {
+    "minio_key": "documents/fs-reg-005.docx",
+    "report_id_hint": "FS-REG-005",
+    "chunks": [
+      {
+        "chunk_id": "FS-REG-005#D2#1",
+        "report_id": "FS-REG-005",
+        "section_path": ["D2", "问题描述"],
+        "para_idx": 1,
+        "chunk_role": "evidence",
+        "text": "EP2002 阀在出厂测试时压力波动超差，需进一步分析。",
+        "token_count": 20
+      }
+    ]
+  },
+  "llm_result": {
+    "report": {
+      "business_key": "FS-REG-005",
+      "report_no": "FS-REG-005",
+      "issue_title": "出厂测试压力波动超差",
+      "d2_problem_statement": "EP2002 阀在出厂测试时压力波动超差。"
+    },
+    "event": {
+      "business_key": "EVT-FS-REG-005",
+      "event_id": "EVT-FS-REG-005",
+      "event_type": "试验",
+      "symptom": "出厂测试压力波动超差",
+      "reporter_name": "李工"
+    },
+    "product_instances": [
+      {
+        "business_key": "SN-REG-005",
+        "serial_number": "SN-REG-005",
+        "asset_code": "EP2002-A01"
+      }
+    ],
+    "relationships": []
+  }
+}

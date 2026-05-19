@@ -41,6 +41,7 @@ class MockLLMClient(LLMClient):
         response_model: type[T],
         max_tokens: int = 4096,
         temperature: float = 0.1,
+        request_context: dict | None = None,
     ) -> tuple[T, LLMUsage]:
         self._calls += 1
         fixture = _load_fixture()
@@ -64,7 +65,14 @@ class MockLLMClient(LLMClient):
             prompt_tokens=1600,
             completion_tokens=3200,
             total_tokens=4800,
+            model="mock-v0.2",
             cost_estimate=0.0,
-            metadata={"model": "mock-v0.2", "call_index": self._calls},
+            metadata={
+                "provider": "mock",
+                "executor_type": "mock",
+                "model": "mock-v0.2",
+                "call_index": self._calls,
+                "request_context": request_context or {},
+            },
         )
         return obj, usage

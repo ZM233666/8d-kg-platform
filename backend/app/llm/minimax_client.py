@@ -60,6 +60,7 @@ class MinimaxClient:
         response_model: type[T],
         max_tokens: int = 4096,
         temperature: float = 0.1,
+        request_context: dict[str, Any] | None = None,
     ) -> tuple[T, LLMUsage]:
         url = f"{self.base_url}/chat/completions"
         headers = {
@@ -129,7 +130,12 @@ class MinimaxClient:
             total_tokens=int(usage_raw.get("total_tokens", 0)),
             model=self.model,
             cost_estimate=0.0,
-            metadata={"provider": "minimax", "base_url": self.base_url},
+            metadata={
+                "provider": "minimax",
+                "executor_type": "minimax_llm",
+                "base_url": self.base_url,
+                "request_context": request_context or {},
+            },
         )
         logger.info(
             "minimax_response_ok",

@@ -1,4 +1,4 @@
-.PHONY: help tunnel-up tunnel-status backend worker frontend test lint alembic
+.PHONY: help tunnel-up tunnel-status backend worker codex-service frontend test lint alembic
 
 # === 开发环境 ===
 # 前提：确保 .env 已配置且隧道已建立
@@ -29,6 +29,10 @@ worker:
 	@echo "启动 Celery worker..."
 	cd backend && uv run celery -A app.tasks.celery_app worker -l info
 
+codex-service:
+	@echo "启动本地 Codex 抽取服务 (:8787)..."
+	cd backend && uv run uvicorn app.codex_service:app --host 127.0.0.1 --port 8787
+
 # 数据库迁移
 alembic:
 	@echo "运行 Alembic 迁移..."
@@ -36,11 +40,11 @@ alembic:
 
 # 前端
 frontend:
-	@echo "启动前端开发服务器 (127.0.0.1:5173)..."
+	@echo "启动前端开发服务器 (127.0.0.1:5172)..."
 	cd frontend && if [ -d node_modules ]; then \
-		npm run dev -- --host 127.0.0.1 --port 5173; \
+		npm run dev -- --host 127.0.0.1 --port 5172; \
 	else \
-		npm install && npm run dev -- --host 127.0.0.1 --port 5173; \
+		npm install && npm run dev -- --host 127.0.0.1 --port 5172; \
 	fi
 
 # 测试
@@ -80,7 +84,8 @@ dev:
 	@echo "终端 1: make tunnel-up"
 	@echo "终端 2: make backend"
 	@echo "终端 3: make worker"
-	@echo "终端 4: make frontend"
+	@echo "终端 4: make codex-service"
+	@echo "终端 5: make frontend"
 	@echo "=== 健康检查 ==="
 	@echo "curl http://localhost:8000/api/v1/health"
 
@@ -91,7 +96,8 @@ help:
 	@echo "tunnel-status  检查所有隧道端口连通性"
 	@echo "backend        启动 FastAPI 后端 (:8000)"
 	@echo "worker         启动 Celery worker"
-	@echo "frontend       启动前端 (127.0.0.1:5173)"
+	@echo "codex-service  启动本地 Codex 抽取服务 (:8787)"
+	@echo "frontend       启动前端 (127.0.0.1:5172)"
 	@echo "alembic        运行数据库迁移"
 	@echo "test           运行测试"
 	@echo "lint           代码静态检查"

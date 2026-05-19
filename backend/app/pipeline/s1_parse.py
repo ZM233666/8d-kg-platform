@@ -1,4 +1,4 @@
-"""s1 Parser (Reader)：从 MinIO / 本地读取 docx 并解析为 raw_text / raw_tables / raw_images。"""
+"""s1 Parser (Reader): 从 MinIO / 本地读取 docx 并解析为 raw_text / raw_tables / raw_images。"""
 
 from __future__ import annotations
 
@@ -15,7 +15,8 @@ from app.pipeline.base import stage
 from app.pipeline.context import PipelineContext
 from app.services.doc_converter import open_as_docx
 from app.services.doc_format import INVALID_DOCX_MSG, read_sniff_word_format
-from app.services.minio_client import download_to_tempfile, parse_minio_url
+from app.services.legacy_doc_text import extract_text_from_legacy_doc
+from app.services.minio_client import download_to_tempfile
 
 logger = structlog.get_logger(__name__)
 
@@ -23,14 +24,14 @@ HEADING_RE = re.compile(r"^Heading(\d+)$", re.IGNORECASE)
 
 
 def _style_level_from_xml(p_elem) -> int | None:
-    """直接从 CT_P XML 读 pStyle val，避免 python-docx style.name 失效问题。"""
-    pPr = p_elem.find(qn("w:pPr"))
-    if pPr is None:
+    """直接从 CT_P XML 读 pStyle val, 避免 python-docx style.name 失效问题。"""
+    p_pr = p_elem.find(qn("w:pPr"))
+    if p_pr is None:
         return None
-    pStyle = pPr.find(qn("w:pStyle"))
-    if pStyle is None:
+    p_style = p_pr.find(qn("w:pStyle"))
+    if p_style is None:
         return None
-    val = pStyle.get(qn("w:val")) or ""
+    val = p_style.get(qn("w:val")) or ""
     m = HEADING_RE.match(val.strip())
     return int(m.group(1)) if m else None
 
@@ -50,12 +51,41 @@ def _load_local_docx(path: str) -> Document:
     return Document(str(p))
 
 
+def _read_doc_source(path: Path) -> tuple[Document | None, str | None]:
+    """优先返回可供 python-docx 解析的 Document; 失败时回退 legacy doc 文本。"""
+    fmt = read_sniff_word_format(path)
+    if fmt == "docx":
+        with open_as_docx(path) as docx_path:
+            return _load_local_docx(str(docx_path)), None
+    if fmt == "doc":
+        try:
+            with open_as_docx(path) as docx_path:
+                return _load_local_docx(str(docx_path)), None
+        except RuntimeError as exc:
+            fallback_text = extract_text_from_legacy_doc(path)
+            if not fallback_text:
+                raise RuntimeError(f"legacy .doc 文本兜底解析失败: {path}") from exc
+            logger.warning(
+                "s1_parse.legacy_doc_fallback",
+                source=str(path),
+                reason=str(exc),
+                text_len=len(fallback_text),
+            )
+            return None, fallback_text
+    raise ValueError(INVALID_DOCX_MSG)
+
+
 def _tbl_to_dict(table, section_path: list[str], raw_index: int) -> dict:
     hdr = [c.text.strip() for c in table.rows[0].cells] if table.rows else []
     rows = []
     for row in table.rows[1:]:
-        rows.append(dict(zip(hdr, [c.text.strip() for c in row.cells])))
-    return {"section_path": section_path.copy(), "headers": hdr, "rows": rows, "raw_index": raw_index}
+        rows.append(dict(zip(hdr, [c.text.strip() for c in row.cells], strict=False)))
+    return {
+        "section_path": section_path.copy(),
+        "headers": hdr,
+        "rows": rows,
+        "raw_index": raw_index,
+    }
 
 
 _REPORT_ID_HEADER_KEYS = ("项目编号", "报告编号", "Report ID", "report_id")
@@ -66,10 +96,10 @@ _REPORT_ID_TEXT_RE = re.compile(
 
 
 def _extract_report_id_from_tables(raw_tables: list[dict]) -> str | None:
-    """扫 raw_tables 第一个含『项目编号/报告编号』表头的表，取第一行该列值。
+    """扫 raw_tables 第一个含『项目编号/报告编号』表头的表, 取第一行该列值。
 
-    注意：_tbl_to_dict 返回 rows=[data_row_dict, ...]（不含 header 行），
-    而 headers=[col_name, ...]。当 rows 仅含 1 行时，数据行即 rows[0]。
+    注意: `_tbl_to_dict` 返回 rows=[data_row_dict, ...] (不含 header 行),
+    而 headers=[col_name, ...]。当 rows 仅含 1 行时, 数据行即 rows[0]。
     """
     for tbl in raw_tables:
         headers = tbl.get("headers", [])
@@ -105,23 +135,44 @@ def _extract_report_id_from_text(raw_text: str) -> str | None:
 
 @stage("s1_parse")
 async def run(ctx: PipelineContext) -> PipelineContext:
-    """从 ctx.minio_key 读取 docx，解析为 raw_text / raw_tables / raw_images。"""
+    """从 ctx.minio_key 读取 docx, 解析为 raw_text / raw_tables / raw_images。"""
     parsed = urlparse(ctx.minio_key)
     scheme = parsed.scheme
 
     if scheme == "local":
         local_path = Path(ctx.minio_key[len("local://") :])
-        with open_as_docx(local_path) as docx_path:
-            doc = _load_local_docx(str(docx_path))
+        doc, fallback_text = _read_doc_source(local_path)
     elif scheme == "minio":
         tmp_path = await download_to_tempfile(ctx.minio_key)
         try:
-            with open_as_docx(tmp_path) as docx_path:
-                doc = _load_local_docx(str(docx_path))
+            doc, fallback_text = _read_doc_source(tmp_path)
         finally:
             tmp_path.unlink(missing_ok=True)
     else:
         raise ValueError(f"Unsupported minio_key scheme: {scheme}")
+
+    if fallback_text is not None:
+        ctx.raw_text = fallback_text
+        ctx.raw_tables = []
+        ctx.raw_images = []
+
+        if not ctx.report_id_hint:
+            extracted_id = _extract_report_id_from_text(ctx.raw_text)
+            if extracted_id:
+                ctx.report_id_hint = extracted_id
+                logger.info("s1_parse.report_id_extracted", report_id=extracted_id)
+
+        logger.info(
+            "s1_parse.done",
+            text_len=len(ctx.raw_text),
+            tables=0,
+            images=0,
+            report_id_hint=ctx.report_id_hint,
+            reader_backend="legacy_doc_text_fallback",
+        )
+        return ctx
+
+    assert doc is not None
 
     section_path: list[str] = []
     raw_tables: list[dict] = []
@@ -137,7 +188,7 @@ async def run(ctx: PipelineContext) -> PipelineContext:
             if level is not None:
                 heading_text = _para_text(child)
                 if heading_text:
-                    section_path = section_path[: level - 1] + [heading_text]
+                    section_path = [*section_path[: level - 1], heading_text]
                     marker = "\n[SEC:" + "/".join(section_path) + "]\n\n"
                     if marker != last_sec_marker:
                         raw_text_parts.append(marker)
@@ -156,7 +207,7 @@ async def run(ctx: PipelineContext) -> PipelineContext:
     ctx.raw_tables = raw_tables
     ctx.raw_images = []
 
-    # --- 提取 report_id（如果调用方没传 hint）---
+    # --- 提取 report_id (如果调用方没传 hint) ---
     if not ctx.report_id_hint:
         extracted_id = _extract_report_id_from_tables(ctx.raw_tables)
         if not extracted_id:
