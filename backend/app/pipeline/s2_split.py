@@ -49,7 +49,9 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         logger.warning("s2_split.skip_empty_text")
         return ctx
 
-    report_id = ctx.report_id_hint or "UNKNOWN"
+    report_id = ctx.report_id_hint or f"DOC-{str(ctx.document_id)[:8]}"
+    if not ctx.report_id_hint:
+        ctx.report_id_hint = report_id
     chunk = _build_single_chunk(report_id, raw_text)
     ctx.chunks = [chunk]
 

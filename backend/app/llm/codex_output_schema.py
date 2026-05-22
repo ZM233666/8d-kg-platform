@@ -153,6 +153,31 @@ def _build_extraction_result_schema() -> dict[str, Any]:
             "supporting_chunks": _array(_string()),
         }
     )
+    failure_product = _strict_object(
+        {
+            "business_key": _string(),
+            "canonical_name": _string(),
+            "family_code": _nullable(_string()),
+            "KBPartName": _nullable(_string()),
+            "KBPartNumber": _nullable(_string()),
+            "aliases": _array(_string()),
+            "kb_part_numbers": _array(_string()),
+            "supporting_chunks": _array(_string()),
+        }
+    )
+    failure_product_mention = _strict_object(
+        {
+            "business_key": _string(),
+            "failure_product_key": _nullable(_string()),
+            "report_no": _nullable(_string()),
+            "KBPartName": _nullable(_string()),
+            "KBPartNumber": _nullable(_string()),
+            "Amount": _nullable(_string()),
+            "amount_value": _nullable(_number()),
+            "amount_unit": _nullable(_string()),
+            "supporting_chunks": _array(_string()),
+        }
+    )
     relation = _strict_object(
         {
             "from_label": _string(),
@@ -174,6 +199,8 @@ def _build_extraction_result_schema() -> dict[str, Any]:
             "part_serials": _array(part_serial),
             "organizations": _array(organization),
             "persons": _array(person),
+            "failure_products": _array(failure_product),
+            "failure_product_mentions": _array(failure_product_mention),
             "relationships": _array(relation),
             "chunks": _array(_strict_object({})),
             "stats": _strict_object({}),

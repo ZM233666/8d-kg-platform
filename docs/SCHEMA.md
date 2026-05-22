@@ -2,7 +2,7 @@
 
 **Schema 版本**：v0.1.0
 **对应 PRD 版本**：v1.5
-**最后更新**：2026-05-07
+**最后更新**：2026-05-22
 **文件路径**：docs/SCHEMA.md
 
 本文档定义 8D 报告知识图谱的完整本体（Ontology）：实体类型、事件类型、概念类型、关系类型、公共属性、Pydantic 模型、Neo4j 约束。所有 Pipeline 组件必须严格遵守本文档定义的 schema。
@@ -965,6 +965,72 @@ LLM prompt 必须为 Finding 显式输出 polarity：
 - 升级 schema 时必须提供迁移脚本：`backend/alembic/versions/` + `backend/scripts/migrate_graph_schema.py`
 - 旧版本节点保留，不强制升级；查询时按 `schema_version` 过滤或兼容处理
 
+#### 13.2.1 运行时 Organization 兼容约定（迁移复用）
+
+为兼容当前抽取运行时（`ExtractionResult.organizations`）并降低跨框架迁移成本，新增以下约定：
+
+- 允许把旧本体中的 `Operator / Customer / Supplier` 映射为统一 `Organization` 节点。
+- `Organization.org_type` 推荐受控值：
+  - `公司`
+  - `供应商`
+  - `客户`
+  - `运营商`
+  - `部门`
+  - `项目组`
+- 旧关系映射建议：
+  - `EightDReport -[:OPERATED_BY]-> Operator`
+    → `EightDReport -[:RESPONSIBLE_ORG]-> Organization(org_type="运营商")`
+  - `Part -[:MANUFACTURED_BY]-> Supplier`
+    → `PartSerial -[:SUPPLIED_BY]-> Organization(org_type="供应商")`（在运行时投影层）
+- 迁移实现建议：
+  - 保留旧标签节点，不强制删除；
+  - 在写入层做标签兼容投影（或离线迁移脚本一次性归并）；
+  - 业务查询优先按 `Organization` + `org_type` 兼容读取。
+
+说明：以上为“迁移兼容层”约定，不改变本章旧本体历史定义；用于确保 Codex skills 与运行时代码在跨版本/跨框架迁移时语义一致。
+
+#### 13.2.2 FailureProduct 两层建模兼容约定（迁移复用）
+
+为兼容当前运行时在跨报告产品归一上的实现，补充以下迁移约定：
+
+- 允许在运行时投影层引入两层结构：
+  - `FailureProduct`：跨报告规范化产品节点（canonical）
+  - `FailureProductMention`：单报告内原文事实节点（mention）
+- 推荐关系链：
+  - `EightDReport -[:MENTIONS_FAILURE_PRODUCT]-> FailureProductMention`
+  - `FailureProductMention -[:INSTANCE_OF_FAILURE_PRODUCT]-> FailureProduct`
+- 字段语义建议：
+  - `FailureProduct` 侧保留：`canonical_name`、`family_code`、`aliases`、`kb_part_numbers`
+  - `FailureProductMention` 侧保留：`KBPartName`、`KBPartNumber`、`Amount`、`report_no`
+- 键策略建议：
+  - canonical 节点优先按产品族/部件号做稳定归一；
+  - mention 节点按“报告范围 + 原文字段”生成局部唯一键；
+  - 避免把所有报告事实直接写到 canonical 节点导致覆盖。
+
+说明：此约定用于补足 v0.1 文档未覆盖的运行时能力，确保后续迁移时保留“跨报告归一 + 报告内事实”双重语义。
+
+#### 13.2.3 图治理与重抽清理兼容约定（迁移复用）
+
+为避免历史脏数据导致单报告图分裂，新增治理兼容约定：
+
+- 报告与 chunk 的主归属关系建议固定为：
+  - `Chunk -[:CHUNK_OF_REPORT]-> EightDReport`
+- 所有业务节点应携带：
+  - `source_doc_id`
+  - 可选 `filename`（用于历史兼容清理）
+- 重抽写入建议先做“同文档清理”再写入：
+  - 按 `source_doc_id` 清理；
+  - 兜底按 `filename` 清理；
+  - 对历史 `UNKNOWN` / `FS-UNKNOWN` / `EVT-UNKNOWN` 键做兼容修复或迁移。
+- 对历史 `UNKNOWN#...` chunk，建议先迁移其 `MENTIONED_IN` 关系到 canonical chunk，再删除旧 chunk，避免证据链断裂。
+- 组织抽取治理建议（尤其 `org_type="运营商"`）：
+  - 不创建泛化占位组织（如 `org_name="供应商"`）；仅在有可识别主体名称时建组织节点；
+  - 对“句子型片段”做过滤，避免把完整叙述句误建为组织名；
+  - 若候选名称包含明显动作/描述词（如“运用于/分析/调查/故障”等）或以“且/并/而/与”等连接词起始，默认判为噪声；
+  - 噪声组织不入图，避免污染责任组织关系。
+
+说明：以上属于运行时写入治理契约，建议在跨框架迁移时保持等价策略，以防出现“孤立子图”与重复节点。
+
 ### 13.3 重抽接口预留
 
 虽然 v0.1 不实现重抽，但所有节点必须带 `extraction_version`，Writer 必须支持按 `extraction_version` 删除/覆盖。
@@ -977,6 +1043,9 @@ LLM prompt 必须为 Finding 显式输出 polarity：
 
 - [ ] 所有 Pydantic 模型继承 BaseNode / BaseEvent，extra=forbid
 - [ ] 所有节点必带 supporting_chunks、source_doc_id、confidence、schema_version
+- [ ] Organization 兼容映射（含 `org_type=运营商`）在 schema 与 skills 一致
+- [ ] FailureProduct / FailureProductMention 双层语义在 schema 与 skills 一致
+- [ ] 报告重抽遵循 `CHUNK_OF_REPORT + source_doc_id/filename + UNKNOWN 兼容修复` 治理约定
 - [ ] Neo4j 唯一约束已创建（业务键）
 - [ ] PostgreSQL Alembic 迁移已生成
 - [ ] entity_mirror 表与 Neo4j 节点 1:1 同步
@@ -991,5 +1060,5 @@ LLM prompt 必须为 Finding 显式输出 polarity：
 ---
 
 **文档版本**：v1.0（基于 PRD v1.5）
-**最后更新**：2026-05-07
+**最后更新**：2026-05-22
 **维护者**：项目团队

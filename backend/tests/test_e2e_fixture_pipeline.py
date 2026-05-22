@@ -105,6 +105,7 @@ async def test_mock_fixture_pipeline_e2e() -> None:
                 OPTIONAL MATCH (r)-[:AFFECTED_SERIAL]->(:PartSerial)-[:SUPPLIED_BY]->(o:Organization)
                 RETURN r.business_key AS business_key,
                        r.issue_title AS issue_title,
+                       r.filename AS filename,
                        e.business_key AS event_key,
                        e.occurred_at AS occurred_at,
                        count(DISTINCT c) AS cause_count,
@@ -119,6 +120,7 @@ async def test_mock_fixture_pipeline_e2e() -> None:
         assert row is not None
         assert row["business_key"] == "FS-2024-001"
         assert row["issue_title"] == "EP2002 阀门出厂测试密封面泄漏"
+        assert row["filename"] == MOCK_DOCX.name
         assert row["event_key"] == "EVT-FS-2024-001"
         assert str(row["occurred_at"]).startswith("2026-04-10")
         assert row["cause_count"] == 1

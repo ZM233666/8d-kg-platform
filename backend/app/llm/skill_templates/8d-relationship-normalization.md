@@ -21,6 +21,8 @@
 - `TARGET_SERIAL`
 - `INSTALLED_ON`
 - `SUPPLIED_BY`
+- `MENTIONS_FAILURE_PRODUCT`
+- `INSTANCE_OF_FAILURE_PRODUCT`
 
 如果你识别到的语义更接近未来 v0.3 目标层，例如：
 
@@ -28,12 +30,15 @@
 - `RELATED_EVENT`
 - `RELATED_PART`
 - `TARGET_PART`
+- `CHUNK_OF_REPORT`
 
 则当前阶段不要把它们直接输出成关系，改为保留在：
 
 - `summary`
 - `evidence`
 - `title`
+
+说明：`CHUNK_OF_REPORT` 属于写入治理边，必须由 writer / graph governance 层根据 chunk 与 report 归属关系生成，不由抽取技能直接输出。
 
 ## 关系归一原则
 
@@ -74,6 +79,8 @@
 
 - `EightDReport -> RESPONSIBLE_ORG -> Organization`
 - `ActionItem -> RESPONSIBLE_ORG -> Organization`
+
+如果该组织是地铁/深铁/轨道交通运营主体，保留 `RESPONSIBLE_ORG`，并把节点类型语义固定为 `org_type="运营商"`。
 
 不要把所有 `Organization` 都默认视为责任主体。
 不要把封面上的公司抬头、联系地址、网址所属公司，直接当作 `RESPONSIBLE_ORG`。

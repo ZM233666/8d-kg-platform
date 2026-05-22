@@ -14,6 +14,8 @@ ALLOWED_LABELS: set[str] = {
     "ActionItem",
     "Organization",
     "Person",
+    "FailureProduct",
+    "FailureProductMention",
     # 治理
     "Chunk",
 }
@@ -44,6 +46,9 @@ ALLOWED_REL_TYPES: set[str] = {
     # 治理
     "MENTIONED_IN",
     "MENTIONS",
+    "CHUNK_OF_REPORT",
+    "MENTIONS_FAILURE_PRODUCT",
+    "INSTANCE_OF_FAILURE_PRODUCT",
 }
 
 
@@ -289,6 +294,8 @@ _UNIQUE_KEY_MAP: dict[str, str] = {
     "PartSerial": "business_key",
     "Organization": "business_key",
     "Person": "business_key",
+    "FailureProduct": "business_key",
+    "FailureProductMention": "business_key",
     "Chunk": "chunk_business_key",
 }
 

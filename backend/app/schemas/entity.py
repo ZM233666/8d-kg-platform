@@ -116,7 +116,7 @@ class Organization(BaseNode):
 
     org_code: str = Field(..., description="组织编码，对应 business_key")
     org_name: str | None = Field(None, description="组织名称")
-    org_type: str | None = Field(None, description="制造商/供应商/客户/部门/项目组")
+    org_type: str | None = Field(None, description="制造商/供应商/客户/运营商/部门/项目组")
 
 
 class Person(BaseNode):
@@ -127,6 +127,29 @@ class Person(BaseNode):
     title: str | None = Field(None, description="岗位/称谓")
     department: str | None = Field(None, description="部门/职能")
     email: str | None = Field(None, description="邮件地址")
+
+
+class FailureProduct(BaseNode):
+    """失效产品规范节点（跨报告归一）。"""
+
+    canonical_name: str = Field(..., description="规范化产品名")
+    family_code: str | None = Field(None, description="产品族编码（如 EP2002）")
+    KBPartName: str | None = Field(None, description="代表性部件名称")
+    KBPartNumber: str | None = Field(None, description="代表性部件号")
+    aliases: list[str] = Field(default_factory=list, description="别名集合")
+    kb_part_numbers: list[str] = Field(default_factory=list, description="观测到的部件号集合")
+
+
+class FailureProductMention(BaseNode):
+    """报告内失效产品提及节点（保留原文事实）。"""
+
+    failure_product_key: str | None = Field(None, description="关联 FailureProduct.business_key")
+    report_no: str | None = Field(None, description="所属报告号")
+    KBPartName: str | None = Field(None, description="原文部件名称")
+    KBPartNumber: str | None = Field(None, description="原文部件号")
+    Amount: str | None = Field(None, description="原文数量（如 5 pcs / 4pcs）")
+    amount_value: float | None = Field(None, description="归一化数量值")
+    amount_unit: str | None = Field(None, description="归一化数量单位")
 
 
 # =============================================================================

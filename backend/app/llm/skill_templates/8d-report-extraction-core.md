@@ -15,6 +15,8 @@
   - `PartSerial`
   - `Organization`
   - `Person`
+  - `FailureProduct`
+  - `FailureProductMention`
 - 当前 runtime **不支持**：
   - `Installation`
   - raw 时间辅助字段
@@ -42,6 +44,12 @@
 - `TARGET_PRODUCT`
 - `INSTALLED_ON`
 - `SUPPLIED_BY`
+- `MENTIONS_FAILURE_PRODUCT`
+- `INSTANCE_OF_FAILURE_PRODUCT`
+
+治理边说明：
+
+- `CHUNK_OF_REPORT` 由 writer 层生成，不作为 LLM 直接输出关系。
 
 如果某个未来 v0.3 文档里提到的关系当前 runtime 不支持，例如：
 
@@ -68,6 +76,9 @@
    - `product_instances`
    - `part_serials`
    - `organizations`
+   - `failure_products`
+   - `failure_product_mentions`
+   - `organizations` 中 `org_type` 可用值建议覆盖：`公司`、`供应商`、`客户`、`运营商`、`部门`、`项目组`
 3. 最后补关系：
    - 只输出能在当前实体集合中闭合的关系
    - 关系不要依赖“脑补出来但没有实体支撑”的端点
@@ -95,6 +106,7 @@
 - `ProductInstance` 和 `PartSerial` 有歧义时, 默认优先保守到 `PartSerial`
 - `EightDReport.owner_name` 只有在原文明确出现 `负责人 / 责任人 / owner` 等信号时才填写
 - `ProductEvent.severity` 只有在原文明确出现 `等级 / 级别 / 定义为` 等信号时才填写
+- `Organization.org_type` 对地铁/深铁/轨道交通运营主体优先使用 `运营商`（如 `兰州地铁`、`深圳地铁`、`中建深铁`）
 
 ## ProductInstance / PartSerial 判别优先级
 

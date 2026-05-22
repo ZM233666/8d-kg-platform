@@ -9,6 +9,8 @@
 - `ActionItem`
 - 条件性 `Organization`
 - 条件性 `Person`
+- 条件性 `FailureProductMention`
+- 条件性 `FailureProduct`
 - `EightDReport -> CORRECTIVE_ACTION -> ActionItem`
 - `EightDReport -> PREVENTIVE_ACTION -> ActionItem`
 - `ActionItem -> VERIFIES_CAUSE -> CauseItem`
@@ -16,11 +18,14 @@
 - `ActionItem -> TARGET_SERIAL -> PartSerial`
 - `ActionItem -> RESPONSIBLE_ORG -> Organization`
 - 条件性 `ActionItem -> OWNED_BY_PERSON -> Person`
+- 条件性 `EightDReport -> MENTIONS_FAILURE_PRODUCT -> FailureProductMention`
+- 条件性 `FailureProductMention -> INSTANCE_OF_FAILURE_PRODUCT -> FailureProduct`
 
 当前 runtime **暂不直接支持**：
 
 - `TARGET_PART`
 - `RELATED_EVENT`
+- `CHUNK_OF_REPORT`（治理边，由 writer 层补，不由抽取技能直接输出）
 - raw 时间辅助字段
 - `timePrecision`
 
@@ -121,6 +126,10 @@
 
 - `Organization`
 - `ActionItem -> RESPONSIBLE_ORG -> Organization`
+
+如果责任单位明显是运营主体（如“深圳地铁运营集团”“兰州地铁”“中建深铁”）：
+
+- `Organization.org_type` 设为 `运营商`
 
 如果只有个人负责人或岗位表达：
 

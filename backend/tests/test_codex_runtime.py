@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 from app.core.config import settings
-from app.llm import CodexClient, MinimaxClient, build_llm_client, get_llm_client, prompts
+from app.llm import CodexClient, LiteLLMClient, build_llm_client, get_llm_client, prompts
 from app.llm.base import LLMError, LLMUsage
 from app.llm.fallback_client import FallbackLLMClient
 from app.pipeline import s4_extract
@@ -157,6 +157,25 @@ def _build_full_document_ctx() -> PipelineContext:
     )
 
 
+def _build_unknown_chunk_ctx() -> PipelineContext:
+    return PipelineContext(
+        document_id=uuid4(),
+        minio_key="documents/fs-006.docx",
+        report_id_hint=None,
+        chunks=[
+            Chunk(
+                chunk_id="UNKNOWN#full_document#0",
+                report_id="UNKNOWN",
+                section_path=["full_document"],
+                para_idx=0,
+                chunk_role="unknown",
+                text="8D 报告全文。",
+                token_count=12,
+            )
+        ],
+    )
+
+
 def test_select_codex_skill_returns_default_document_route() -> None:
     selection = select_codex_skill(_build_ctx())
 
@@ -195,39 +214,39 @@ def test_build_codex_system_prompt_includes_selected_modules() -> None:
     assert "最终只输出当前 runtime 支持的 ExtractionResult JSON" in prompt
 
 
-def test_build_llm_client_supports_minimax_provider(
+def test_build_llm_client_supports_litellm_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "minimax_api_key", "test-minimax-key")
-    monkeypatch.setattr(settings, "minimax_base_url", "https://api.minimax.chat/v1")
-    monkeypatch.setattr(settings, "minimax_model", "MiniMax-M2.7")
-    monkeypatch.setattr(settings, "minimax_timeout_seconds", 45)
-    monkeypatch.setattr(settings, "minimax_max_retries", 2)
+    monkeypatch.setattr(settings, "litellm_api_key", "test-litellm-key")
+    monkeypatch.setattr(settings, "litellm_base_url", "http://127.0.0.1:14000/v1")
+    monkeypatch.setattr(settings, "litellm_model", "gpt-5.4")
+    monkeypatch.setattr(settings, "litellm_timeout_seconds", 45)
+    monkeypatch.setattr(settings, "litellm_max_retries", 2)
 
-    client = build_llm_client("minimax")
+    client = build_llm_client("litellm")
 
-    assert isinstance(client, MinimaxClient)
-    assert client.base_url == "https://api.minimax.chat/v1"
-    assert client.model == "MiniMax-M2.7"
+    assert isinstance(client, LiteLLMClient)
+    assert client.base_url == "http://127.0.0.1:14000/v1"
+    assert client.model == "gpt-5.4"
 
 
-def test_get_llm_client_wraps_codex_with_minimax_fallback(
+def test_get_llm_client_wraps_codex_with_litellm_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "llm_provider", "codex")
-    monkeypatch.setattr(settings, "llm_fallback_provider", "minimax")
+    monkeypatch.setattr(settings, "llm_fallback_provider", "litellm")
     monkeypatch.setattr(settings, "llm_primary_soft_timeout_seconds", 30)
-    monkeypatch.setattr(settings, "minimax_api_key", "test-minimax-key")
-    monkeypatch.setattr(settings, "minimax_base_url", "https://api.minimax.chat/v1")
-    monkeypatch.setattr(settings, "minimax_model", "MiniMax-M2.7")
+    monkeypatch.setattr(settings, "litellm_api_key", "test-litellm-key")
+    monkeypatch.setattr(settings, "litellm_base_url", "http://127.0.0.1:14000/v1")
+    monkeypatch.setattr(settings, "litellm_model", "gpt-5.4")
 
     client = get_llm_client()
 
     assert isinstance(client, FallbackLLMClient)
     assert isinstance(client.primary, CodexClient)
-    assert isinstance(client.fallback, MinimaxClient)
+    assert isinstance(client.fallback, LiteLLMClient)
     assert client.primary_provider == "codex"
-    assert client.fallback_provider == "minimax"
+    assert client.fallback_provider == "litellm"
     assert client.primary_timeout_seconds == 30
 
 
@@ -595,8 +614,8 @@ async def test_fallback_llm_client_falls_back_when_primary_times_out() -> None:
                     prompt_tokens=1,
                     completion_tokens=2,
                     total_tokens=3,
-                    model="minimax",
-                    metadata={"provider": "minimax", "executor_type": "minimax_llm"},
+                    model="gpt-5.4",
+                    metadata={"provider": "litellm", "executor_type": "litellm_llm"},
                 ),
             )
 
@@ -604,7 +623,7 @@ async def test_fallback_llm_client_falls_back_when_primary_times_out() -> None:
         primary=SlowPrimaryClient(),
         fallback=SuccessClient(),
         primary_provider="codex",
-        fallback_provider="minimax",
+        fallback_provider="litellm",
         primary_timeout_seconds=0.01,
     )
 
@@ -616,7 +635,7 @@ async def test_fallback_llm_client_falls_back_when_primary_times_out() -> None:
 
     assert result.report is not None
     assert usage.metadata["primary_provider"] == "codex"
-    assert usage.metadata["fallback_provider"] == "minimax"
+    assert usage.metadata["fallback_provider"] == "litellm"
     assert "timed out" in usage.metadata["fallback_trigger"]
 
 
@@ -696,3 +715,54 @@ async def test_s4_extract_records_executor_metadata(
         "8d-relationship-normalization",
         "8d-d4-root-cause-extraction",
     ]
+
+
+@pytest.mark.asyncio
+async def test_s4_extract_syncs_ctx_chunks_after_unknown_report_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeClient:
+        async def complete_json(
+            self,
+            *,
+            system_prompt: str,
+            user_prompt: str,
+            response_model: type[ExtractionResult],
+            max_tokens: int = 4096,
+            temperature: float = 0.1,
+            request_context: dict | None = None,
+        ) -> tuple[ExtractionResult, LLMUsage]:
+            return (
+                ExtractionResult(
+                    report=EightDReport(
+                        business_key="UNKNOWN",
+                        report_no="UNKNOWN",
+                        issue_title="UNKNOWN title",
+                        supporting_chunks=["UNKNOWN#full_document#0"],
+                    ),
+                    event={
+                        "business_key": "EVT-UNKNOWN",
+                        "event_id": "EVT-UNKNOWN",
+                        "supporting_chunks": ["UNKNOWN#full_document#0"],
+                    },
+                ),
+                LLMUsage(
+                    prompt_tokens=1,
+                    completion_tokens=1,
+                    total_tokens=2,
+                    model="codex-local",
+                    metadata={"provider": "codex", "executor_type": "codex_skill"},
+                ),
+            )
+
+    monkeypatch.setattr(settings, "llm_provider", "codex")
+    monkeypatch.setattr(s4_extract, "get_llm_client", lambda: FakeClient())
+    monkeypatch.setattr(s4_extract, "enrich_personnel_from_tables", lambda c, r: r)
+
+    ctx = await s4_extract.run(_build_unknown_chunk_ctx())
+
+    assert ctx.extraction_result is not None
+    assert ctx.chunks[0].chunk_id == "FS-UNKNOWN#full_document#0"
+    assert ctx.chunks[0].report_id == "FS-UNKNOWN"
+    assert ctx.extraction_result.report is not None
+    assert ctx.extraction_result.report.business_key == "FS-UNKNOWN"

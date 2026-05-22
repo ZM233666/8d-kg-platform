@@ -12,17 +12,22 @@
 - 条件性 `PartSerial`
 - 条件性 `Organization`
 - 条件性 `Person`
+- 条件性 `FailureProductMention`
+- 条件性 `FailureProduct`
 - `ProductEvent -> HAS_8D_REPORT -> EightDReport`
 - `ProductEvent -> HAPPENED_ON -> ProductInstance`
 - `ProductEvent -> RELATED_SERIAL -> PartSerial`
 - `ProductEvent -> RELATED_FAILURE_MODE -> FailureMode`
 - 条件性 `ProductEvent -> REPORTED_BY_PERSON -> Person`
+- 条件性 `EightDReport -> MENTIONS_FAILURE_PRODUCT -> FailureProductMention`
+- 条件性 `FailureProductMention -> INSTANCE_OF_FAILURE_PRODUCT -> FailureProduct`
 
 当前 runtime **暂不直接支持**：
 
 - `REPORTED_BY_ORG`
 - `RELATED_PART`
 - `RESPONSIBLE_ORG`
+- `CHUNK_OF_REPORT`（治理边，由 writer 层补，不由抽取技能直接输出）
 - raw 时间辅助字段
 - `timePrecision`
 
@@ -176,11 +181,20 @@
 - 明确的客户单位
 - 明确的供应商单位
 - 明确的责任单位
+- 明确的运营商单位（如“兰州地铁”“深圳地铁”“中建深铁”）
 
 如果组织只是 reporter 或联系人字段中的原始值：
 
 - 优先保留到 `reporter_name`
 - 不为了 actor typing 结果额外创建 `Organization`
+
+`org_type` 建议：
+
+- 供应链主体：`供应商`
+- 客户单位：`客户`
+- 地铁/深铁/轨道交通运营主体：`运营商`
+- 句子型长文本不要当作组织名（如“且该型号螺栓广泛运用于四方地铁”），这类应判为噪声并跳过
+- 泛化占位词不要当组织节点（如“供应商”），需等待可识别主体名称后再建 `Organization`
 
 ### `occurred_at`
 

@@ -24,6 +24,8 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
   "part_serials":      [<PartSerial>, ...],
   "organizations":     [<Organization>, ...],
   "persons":           [<Person>, ...],
+  "failure_products":  [<FailureProduct>, ...],
+  "failure_product_mentions": [<FailureProductMention>, ...],
   "relationships":     [<RelationTriple>, ...],
   "chunks":            [],
   "stats":             {}
@@ -69,11 +71,20 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
 
 8) Organization（数组 "organizations"，无则给 []）
    必填: business_key（=org_code）, org_code, org_name
-   可选: org_type（如 "供应商" / "客户" / "内部部门"）, supporting_chunks
+   可选: org_type（如 "供应商" / "客户" / "运营商" / "内部部门"）, supporting_chunks
+   抽取提示: 尽量覆盖报告中的关键组织（制造商/供应商/客户/运营商），不要只依赖 action.owner_name。
 
 9) Person（数组 "persons"，无则给 []）
    必填: business_key（=person_id）, person_id
    可选: person_name, title, department, email, supporting_chunks
+
+10) FailureProduct（数组 "failure_products"，无则给 []）
+   必填: business_key, canonical_name
+   可选: family_code, KBPartName, KBPartNumber, aliases, kb_part_numbers, supporting_chunks
+
+11) FailureProductMention（数组 "failure_product_mentions"，无则给 []）
+   必填: business_key
+   可选: failure_product_key, report_no, KBPartName, KBPartNumber, Amount, amount_value, amount_unit, supporting_chunks
 
 ================ 关系（"relationships" 数组）================
 
@@ -89,9 +100,9 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
 
 ❌ 禁止使用 source_key / target_key 这种字段名！必须是 from_label / from_key / to_label / to_key。
 
-Label 取值必须是上面 8 个实体类名之一：
+Label 取值必须是上面实体类名之一：
 EightDReport, ProductEvent, FailureMode, CauseItem, ActionItem,
-ProductInstance, PartSerial, Organization, Person
+ProductInstance, PartSerial, Organization, Person, FailureProduct, FailureProductMention
 
 🔒 **rel_type 严格白名单（只能从下面白名单中选，多一个字符都会被拒绝）**：
 
@@ -122,6 +133,10 @@ ProductInstance, PartSerial, Organization, Person
   - REVIEWED_BY_PERSON     : EightDReport -> Person（核对/审核人）
   - REPORTED_BY_PERSON     : ProductEvent -> Person（上报人）
   - OWNED_BY_PERSON        : EightDReport/ActionItem -> Person（负责人）
+
+失效产品（归一）：
+  - MENTIONS_FAILURE_PRODUCT   : EightDReport -> FailureProductMention（报告内提及）
+  - INSTANCE_OF_FAILURE_PRODUCT: FailureProductMention -> FailureProduct（提及归并到规范节点）
 
 治理（一般 LLM 不要直接输出，留空即可）：
   - MENTIONED_IN, MENTIONS
@@ -190,6 +205,12 @@ ProductInstance, PartSerial, Organization, Person
   "persons": [
     {"business_key": "PER::zhanggong@example.com", "person_id": "PER::zhanggong@example.com", "person_name": "张工", "title": "质量主管", "department": "项目质量", "email": "zhanggong@example.com", "supporting_chunks": []}
   ],
+  "failure_products": [
+    {"business_key": "FP-FAMILY::EP2002", "canonical_name": "EP2002", "family_code": "EP2002", "KBPartName": "EP2002阀", "KBPartNumber": "G(R&S)7029/SMF01", "aliases": ["EP2002阀", "EP2002"], "kb_part_numbers": ["G(R&S)7029/SMF01"], "supporting_chunks": []}
+  ],
+  "failure_product_mentions": [
+    {"business_key": "FPM::FS-2024-001::EP2002阀::G(R&S)7029/SMF01::5PCS::0", "failure_product_key": "FP-FAMILY::EP2002", "report_no": "FS-2024-001", "KBPartName": "EP2002阀", "KBPartNumber": "G(R&S)7029/SMF01", "Amount": "5 pcs", "amount_value": 5, "amount_unit": "pcs", "supporting_chunks": []}
+  ],
   "relationships": [
     {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "EightDReport", "to_key": "FS-2024-001", "rel_type": "HAS_8D_REPORT", "properties": {}},
     {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
@@ -201,7 +222,9 @@ ProductInstance, PartSerial, Organization, Person
     {"from_label": "ActionItem", "from_key": "ACT-FS-2024-001-2", "to_label": "CauseItem", "to_key": "CAU-FS-2024-001-1", "rel_type": "VERIFIES_CAUSE", "properties": {}},
     {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "RESPONSIBLE_ORG", "properties": {}},
     {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "Person", "to_key": "PER::zhanggong@example.com", "rel_type": "OWNED_BY_PERSON", "properties": {}},
-    {"from_label": "PartSerial", "from_key": "OR-001::B2024-05", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "SUPPLIED_BY", "properties": {}}
+    {"from_label": "PartSerial", "from_key": "OR-001::B2024-05", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "SUPPLIED_BY", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "FailureProductMention", "to_key": "FPM::FS-2024-001::EP2002阀::G(R&S)7029/SMF01::5PCS::0", "rel_type": "MENTIONS_FAILURE_PRODUCT", "properties": {}},
+    {"from_label": "FailureProductMention", "from_key": "FPM::FS-2024-001::EP2002阀::G(R&S)7029/SMF01::5PCS::0", "to_label": "FailureProduct", "to_key": "FP-FAMILY::EP2002", "rel_type": "INSTANCE_OF_FAILURE_PRODUCT", "properties": {}}
   ],
   "chunks": [],
   "stats": {}
@@ -213,7 +236,7 @@ ProductInstance, PartSerial, Organization, Person
 - 没出现的实体类别，给空数组 []；report/event 未抽到给 null。
 - 所有 business_key 必须按上表规则填，且与各实体在 relationships 中引用一致。
 - relationships 中的 from_key/to_key 必须能在前面实体里找到对应 business_key（自包含闭合）。
-- relationships 中的 rel_type 必须严格来自上面 16 个白名单值之一，多一字都会被拒绝。
+- relationships 中的 rel_type 必须严格来自上面白名单值之一，多一字都会被拒绝。
 """
 
 
@@ -225,7 +248,7 @@ EXTRACTION_USER_TEMPLATE = """报告标识: {report_id}
 请按 system 中描述的 schema 抽取并输出完整 JSON。注意：
 1. 字段名严格匹配（report 用 d4_root_cause_summary / d5_permanent_correction_summary / d7_prevention_summary）。
 2. relationships 必须是 from_label / from_key / to_label / to_key / rel_type 五字段。
-3. rel_type 只能从当前白名单（HAS_8D_REPORT / RELATED_FAILURE_MODE / ROOT_CAUSE / CORRECTIVE_ACTION / PREVENTIVE_ACTION / VERIFIES_CAUSE / HAPPENED_ON / RELATED_SERIAL / AFFECTED_PRODUCT / AFFECTED_SERIAL / TARGET_PRODUCT / TARGET_SERIAL / INSTALLED_ON / RESPONSIBLE_ORG / SUPPLIED_BY / INVOLVES_PERSON / AUTHORED_BY_PERSON / REVIEWED_BY_PERSON / REPORTED_BY_PERSON / OWNED_BY_PERSON / MENTIONED_IN）中选。
+3. rel_type 只能从当前白名单（HAS_8D_REPORT / RELATED_FAILURE_MODE / ROOT_CAUSE / CORRECTIVE_ACTION / PREVENTIVE_ACTION / VERIFIES_CAUSE / HAPPENED_ON / RELATED_SERIAL / AFFECTED_PRODUCT / AFFECTED_SERIAL / TARGET_PRODUCT / TARGET_SERIAL / INSTALLED_ON / RESPONSIBLE_ORG / SUPPLIED_BY / INVOLVES_PERSON / AUTHORED_BY_PERSON / REVIEWED_BY_PERSON / REPORTED_BY_PERSON / OWNED_BY_PERSON / MENTIONED_IN / MENTIONS_FAILURE_PRODUCT / INSTANCE_OF_FAILURE_PRODUCT）中选。
 4. 每个实体必须带 business_key。
 5. 直接输出 JSON，不要任何额外文字。
 """

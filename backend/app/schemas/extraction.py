@@ -9,6 +9,8 @@ from app.schemas.entity import (
     CauseItem,
     Chunk,
     EightDReport,
+    FailureProduct,
+    FailureProductMention,
     FailureMode,
     Organization,
     PartSerial,
@@ -47,6 +49,8 @@ class ExtractionResult(BaseModel):
     part_serials: list[PartSerial] = Field(default_factory=list)
     organizations: list[Organization] = Field(default_factory=list)
     persons: list[Person] = Field(default_factory=list)
+    failure_products: list[FailureProduct] = Field(default_factory=list)
+    failure_product_mentions: list[FailureProductMention] = Field(default_factory=list)
 
     relationships: list[RelationTriple] = Field(default_factory=list)
 

@@ -23,6 +23,7 @@ from app.schemas.entity import (
     CauseItem,
     Chunk,
     EightDReport,
+    FailureProductMention,
     FailureMode,
     Organization,
     PartSerial,
@@ -168,6 +169,14 @@ def test_resolve_report_from_event_when_unknown():
     assert resolve_report_business_key(er) == "FS-EP2002-2022-001"
 
 
+def test_resolve_report_prefers_hint_when_report_and_event_are_unknown() -> None:
+    er = ExtractionResult(
+        report=EightDReport(business_key="FS-UNKNOWN", report_no="FS-UNKNOWN", issue_title="t"),
+        event=ProductEvent(business_key="EVT-UNKNOWN", event_id="EVT-UNKNOWN"),
+    )
+    assert resolve_report_business_key(er, report_id_hint="DOC-ABC12345") == "DOC-ABC12345"
+
+
 def test_enrich_syncs_report_key_and_merges():
     er = ExtractionResult(
         report=EightDReport(business_key="UNKNOWN", report_no="FS-001", issue_title="t"),
@@ -186,6 +195,143 @@ def test_enrich_syncs_report_key_and_merges():
     assert er.report is not None
     assert er.report.business_key == "FS-001"
     assert any(r.rel_type == "HAS_8D_REPORT" for r in er.relationships)
+
+
+def test_enrich_rewrites_unknown_chunk_scope_to_resolved_report_key():
+    er = ExtractionResult(
+        report=EightDReport(
+            business_key="UNKNOWN",
+            report_no="UNKNOWN",
+            issue_title="t",
+            supporting_chunks=["UNKNOWN#full_document#0"],
+        ),
+        event=ProductEvent(
+            business_key="EVT-UNKNOWN",
+            event_id="EVT-UNKNOWN",
+            supporting_chunks=["UNKNOWN#full_document#0"],
+        ),
+        chunks=[
+            Chunk(
+                chunk_id="UNKNOWN#full_document#0",
+                report_id="UNKNOWN",
+                section_path=["full_document"],
+                para_idx=0,
+                chunk_role="unknown",
+                text="8D 原文全文。",
+            )
+        ],
+    )
+
+    enrich_extraction_result(er)
+
+    assert er.report is not None
+    assert er.report.business_key == "UNKNOWN"
+    assert er.report.supporting_chunks == ["UNKNOWN#full_document#0"]
+    assert er.event is not None
+    assert er.event.supporting_chunks == ["UNKNOWN#full_document#0"]
+    assert er.chunks[0].report_id == "UNKNOWN"
+    assert er.chunks[0].chunk_id == "UNKNOWN#full_document#0"
+
+
+def test_enrich_rewrites_relationship_endpoints_when_business_keys_change():
+    er = ExtractionResult(
+        report=EightDReport(
+            business_key="UNKNOWN",
+            report_no="FS-001",
+            issue_title="t",
+        ),
+        event=ProductEvent(
+            business_key="TEMP-EVENT",
+            event_id="EVT-FS-001",
+        ),
+        persons=[
+            Person(
+                business_key="TMP-PERSON",
+                person_id="PER-001",
+                person_name="王工",
+            )
+        ],
+        relationships=[
+            RelationTriple(
+                from_label="ProductEvent",
+                from_key="TEMP-EVENT",
+                to_label="EightDReport",
+                to_key="UNKNOWN",
+                rel_type="HAS_8D_REPORT",
+            ),
+            RelationTriple(
+                from_label="EightDReport",
+                from_key="UNKNOWN",
+                to_label="Person",
+                to_key="TMP-PERSON",
+                rel_type="INVOLVES_PERSON",
+            ),
+        ],
+    )
+
+    enrich_extraction_result(er, report_id_hint="FS-001")
+
+    rel_keys = {(rel.from_key, rel.to_key, rel.rel_type) for rel in er.relationships}
+    assert ("EVT-FS-001", "FS-001", "HAS_8D_REPORT") in rel_keys
+    assert ("FS-001", "PER-001", "INVOLVES_PERSON") in rel_keys
+
+
+def test_enrich_normalizes_failure_product_family_across_aliases() -> None:
+    er1 = ExtractionResult(
+        report=EightDReport(business_key="FS-A", report_no="FS-A", issue_title="A"),
+        failure_product_mentions=[
+            FailureProductMention(
+                business_key="UNKNOWN",
+                KBPartName="EP2002阀",
+                KBPartNumber="G(R&S)7029/SMF01",
+                Amount="5 pcs",
+            )
+        ],
+    )
+    er2 = ExtractionResult(
+        report=EightDReport(business_key="FS-B", report_no="FS-B", issue_title="B"),
+        failure_product_mentions=[
+            FailureProductMention(
+                business_key="UNKNOWN",
+                KBPartName="EP2002",
+                KBPartNumber="G(S)7029/LPZ01",
+                Amount="4pcs",
+            )
+        ],
+    )
+
+    enrich_extraction_result(er1, report_id_hint="FS-A")
+    enrich_extraction_result(er2, report_id_hint="FS-B")
+
+    assert len(er1.failure_products) == 1
+    assert len(er2.failure_products) == 1
+    assert er1.failure_products[0].business_key == "FP-FAMILY::EP2002"
+    assert er2.failure_products[0].business_key == "FP-FAMILY::EP2002"
+    assert er1.failure_product_mentions[0].failure_product_key == "FP-FAMILY::EP2002"
+    assert er2.failure_product_mentions[0].failure_product_key == "FP-FAMILY::EP2002"
+    assert er1.failure_product_mentions[0].amount_value == 5.0
+    assert er2.failure_product_mentions[0].amount_value == 4.0
+
+
+def test_infer_relationships_adds_failure_product_chain() -> None:
+    er = ExtractionResult(
+        report=EightDReport(business_key="FS-2024-001", report_no="FS-2024-001", issue_title="t"),
+        failure_product_mentions=[
+            FailureProductMention(
+                business_key="FPM::FS-2024-001::EP2002::G7029::5PCS::0",
+                failure_product_key="FP-FAMILY::EP2002",
+                KBPartName="EP2002阀",
+                KBPartNumber="G(R&S)7029/SMF01",
+                Amount="5 pcs",
+            )
+        ],
+    )
+
+    enrich_extraction_result(er, report_id_hint="FS-2024-001")
+
+    rel_keys = {(rel.from_label, rel.rel_type, rel.to_label) for rel in er.relationships}
+    assert ("EightDReport", "MENTIONS_FAILURE_PRODUCT", "FailureProductMention") in rel_keys
+    assert ("FailureProductMention", "INSTANCE_OF_FAILURE_PRODUCT", "FailureProduct") in rel_keys
 
 
 def test_merge_explicit_over_inferred():
@@ -419,7 +565,7 @@ def test_normalize_organizations_dedupes_canonical_alias_entries(
     assert alias_map["orgkbsuzhou"] == "ORG-KB-SUZHOU"
 
 
-def test_materialize_organizations_from_action_owners_adds_supplier_org() -> None:
+def test_materialize_organizations_from_action_owners_skips_generic_supplier_org() -> None:
     er = ExtractionResult(
         report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
         actions=[
@@ -436,12 +582,10 @@ def test_materialize_organizations_from_action_owners_adds_supplier_org() -> Non
 
     materialize_organizations_from_action_owners(er)
 
-    assert [(org.business_key, org.org_name, org.org_type) for org in er.organizations] == [
-        ("ORG-LOCAL::R1::供应商", "供应商", "供应商")
-    ]
+    assert er.organizations == []
 
 
-def test_normalize_organizations_scopes_generic_supplier_locally() -> None:
+def test_normalize_organizations_drops_generic_supplier_placeholder() -> None:
     er = ExtractionResult(
         report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
         organizations=[
@@ -457,13 +601,11 @@ def test_normalize_organizations_scopes_generic_supplier_locally() -> None:
 
     alias_map = normalize_organizations(er)
 
-    assert [(org.business_key, org.org_name, org.org_type) for org in er.organizations] == [
-        ("ORG-LOCAL::R1::供应商", "供应商", "供应商")
-    ]
-    assert alias_map["供应商"] == "ORG-LOCAL::R1::供应商"
+    assert er.organizations == []
+    assert alias_map == {}
 
 
-def test_normalize_organizations_scopes_generic_supplier_locally_without_org_name() -> None:
+def test_normalize_organizations_drops_generic_supplier_without_org_name() -> None:
     er = ExtractionResult(
         report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
         organizations=[
@@ -479,8 +621,8 @@ def test_normalize_organizations_scopes_generic_supplier_locally_without_org_nam
 
     alias_map = normalize_organizations(er)
 
-    assert er.organizations[0].business_key == "ORG-LOCAL::R1::供应商"
-    assert alias_map["供应商"] == "ORG-LOCAL::R1::供应商"
+    assert er.organizations == []
+    assert alias_map == {}
 
 
 def test_materialize_organizations_from_action_owners_canonicalizes_known_alias(
@@ -522,6 +664,123 @@ def test_materialize_organizations_from_action_owners_canonicalizes_known_alias(
             "公司",
         )
     ]
+
+
+def test_materialize_organizations_from_chunk_text_detects_operator_aliases(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.pipeline.relationship_builder.load_lexicon",
+        lambda: {
+            "organization_aliases": [
+                {
+                    "canonical_code": "ORG-OP-LANZHOU-METRO",
+                    "canonical_name": "兰州地铁",
+                    "org_type": "运营商",
+                    "aliases": ["兰州轨道交通"],
+                },
+                {
+                    "canonical_code": "ORG-OP-CSST",
+                    "canonical_name": "中建深铁",
+                    "org_type": "运营商",
+                    "aliases": ["中建深铁轨道交通有限公司"],
+                },
+            ]
+        },
+    )
+    er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
+        chunks=[
+            Chunk(
+                chunk_id="R1#full_document#0",
+                report_id="R1",
+                section_path=["full_document"],
+                para_idx=0,
+                chunk_role="metadata",
+                text="运营商：兰州轨道交通；联合方：中建深铁。",
+            )
+        ],
+    )
+
+    materialize_organizations_from_action_owners(er)
+
+    org_index = {org.business_key: org for org in er.organizations}
+    assert "ORG-OP-LANZHOU-METRO" in org_index
+    assert "ORG-OP-CSST" in org_index
+    assert org_index["ORG-OP-LANZHOU-METRO"].org_type == "运营商"
+    assert org_index["ORG-OP-CSST"].org_type == "运营商"
+
+
+def test_normalize_organizations_prefers_operator_over_company() -> None:
+    er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
+        organizations=[
+            Organization(
+                business_key="ORG-SZMETRO",
+                org_code="ORG-SZMETRO",
+                org_name="深圳地铁运营集团有限公司",
+                org_type="公司",
+                supporting_chunks=["R1#封面#0"],
+            )
+        ],
+    )
+
+    normalize_organizations(er)
+
+    assert er.organizations[0].org_type == "运营商"
+
+
+def test_normalize_organizations_canonicalizes_org_code_alias(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.pipeline.relationship_builder.load_lexicon",
+        lambda: {
+            "organization_aliases": [
+                {
+                    "canonical_code": "ORG-CRRC-SIFANG",
+                    "canonical_name": "中车四方",
+                    "org_type": "客户",
+                    "aliases": ["ORG-CSR-SIFANG", "中车四方股份公司"],
+                }
+            ]
+        },
+    )
+    er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
+        organizations=[
+            Organization(
+                business_key="ORG-CSR-SIFANG",
+                org_code="ORG-CSR-SIFANG",
+                org_name="中车四方股份公司",
+                org_type="公司",
+                supporting_chunks=["R1#封面#0"],
+            )
+        ],
+    )
+
+    normalize_organizations(er)
+
+    assert len(er.organizations) == 1
+    assert er.organizations[0].business_key == "ORG-CRRC-SIFANG"
+    assert er.organizations[0].org_name == "中车四方"
+    assert er.organizations[0].org_type == "客户"
+
+
+def test_materialize_organizations_skips_sentence_like_operator_noise() -> None:
+    er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
+        chunks=[
+            Chunk(
+                chunk_id="R1#full_document#0",
+                report_id="R1",
+                section_path=["full_document"],
+                para_idx=0,
+                chunk_role="metadata",
+                text="且该型号螺栓广泛运用于四方地铁，需后续跟踪。",
+            )
+        ],
+    )
+
+    materialize_organizations_from_action_owners(er)
+
+    assert er.organizations == []
 
 
 def test_materialize_persons_from_actor_fields_adds_person_for_report_owner() -> None:

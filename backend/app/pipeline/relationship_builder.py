@@ -6,7 +6,7 @@ import re
 
 from app.graph.client import ALLOWED_LABELS, ALLOWED_REL_TYPES
 from app.lexicon import load_lexicon
-from app.schemas.entity import Organization, Person
+from app.schemas.entity import FailureProduct, FailureProductMention, Organization, Person
 from app.schemas.extraction import ExtractionResult, RelationTriple
 
 _INVALID_REPORT_KEYS = frozenset({"", "UNKNOWN", "unknown", "N/A", "null", "None"})
@@ -94,6 +94,8 @@ _REL_ENDPOINT_RULES: dict[str, frozenset[tuple[str, str]]] = {
     "SUPPLIED_BY": frozenset({("PartSerial", "Organization")}),
     "MENTIONED_IN": frozenset((label, "Chunk") for label in _BUSINESS_LABELS),
     "MENTIONS": frozenset(("Chunk", label) for label in _BUSINESS_LABELS),
+    "MENTIONS_FAILURE_PRODUCT": frozenset({("EightDReport", "FailureProductMention")}),
+    "INSTANCE_OF_FAILURE_PRODUCT": frozenset({("FailureProductMention", "FailureProduct")}),
 }
 _COMPANY_MARKERS = (
     "有限公司",
@@ -107,6 +109,30 @@ _COMPANY_MARKERS = (
     "gmbh",
 )
 _DEPARTMENT_MARKERS = ("部门", "项目组", "小组", "中心", "team", "department", "quality", "制造部")
+_OPERATOR_MARKERS = (
+    "运营商",
+    "operator",
+    "地铁",
+    "深铁",
+    "轨道交通",
+    "铁路局",
+    "metro",
+)
+_OPERATOR_NAME_RE = re.compile(
+    r"[\u4e00-\u9fffA-Za-z0-9]{2,20}(?:地铁|深铁|轨道交通|铁路局)",
+)
+_OPERATOR_NOISE_TOKENS = (
+    "该型号",
+    "螺栓",
+    "故障",
+    "调查",
+    "报告",
+    "断裂",
+    "运用于",
+    "用于",
+    "进行",
+    "分析",
+)
 _GENERIC_ORG_NAMES = frozenset(
     {
         "供应商",
@@ -122,6 +148,7 @@ _GENERIC_ORG_NAMES = frozenset(
         "team",
     }
 )
+_GENERIC_SUPPLIER_NAMES = frozenset({"供应商", "supplier"})
 _OWNER_SIGNAL_RE = re.compile(
     r"(负责人|责任人|owner|报告人|负责人姓名|责任部门|责任单位)", re.IGNORECASE
 )
@@ -131,6 +158,8 @@ _PERSON_CONTEXT_SIGNAL_RE = re.compile(
     r"(负责人|责任人|联系人|报告人|上报人|owner|operator|操作人|责任工程师|责任经理)",
     re.IGNORECASE,
 )
+_AMOUNT_RE = re.compile(r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>pcs?|件|个)?", re.IGNORECASE)
+_FAMILY_TOKEN_RE = re.compile(r"([A-Za-z]{1,8}\d{2,}[A-Za-z0-9-]*)")
 
 
 def _is_valid_relation_endpoint(*, rel_type: str, from_label: str, to_label: str) -> bool:
@@ -206,15 +235,24 @@ def resolve_report_business_key(
     report_id_hint: str | None = None,
 ) -> str | None:
     """解析 8D 报告 business_key, LLM 常输出 UNKNOWN, 需从 hint / event_id 兜底."""
+    def _is_invalid_report_key(candidate: str | None) -> bool:
+        if not candidate:
+            return True
+        stripped = candidate.strip()
+        if stripped in _INVALID_REPORT_KEYS:
+            return True
+        normalized = _normalize_match_text(stripped)
+        return "unknown" in normalized
+
     if er.report:
         for candidate in (er.report.business_key, er.report.report_no):
-            if candidate and candidate.strip() not in _INVALID_REPORT_KEYS:
+            if not _is_invalid_report_key(candidate):
                 return candidate.strip()
-    if report_id_hint and report_id_hint.strip() not in _INVALID_REPORT_KEYS:
+    if not _is_invalid_report_key(report_id_hint):
         return report_id_hint.strip()
     if er.event and er.event.event_id:
         eid = er.event.event_id.strip()
-        if eid.startswith("EVT-"):
+        if eid.startswith("EVT-") and not _is_invalid_report_key(eid):
             return "FS-" + eid[4:]
     if er.chunks:
         for c in er.chunks[:3]:
@@ -227,35 +265,170 @@ def resolve_report_business_key(
 def _sync_entity_business_keys(
     er: ExtractionResult,
     report_id_hint: str | None = None,
-) -> None:
+) -> dict[str, dict[str, str]]:
     """让 business_key 与 report_no / event_id 等主字段一致, 避免关系端点找不到节点."""
+    key_mapping: dict[str, dict[str, str]] = {}
+
+    def _record_mapping(label: str, old_key: str | None, new_key: str | None) -> None:
+        if not old_key or not new_key or old_key == new_key:
+            return
+        label_map = key_mapping.setdefault(label, {})
+        label_map[old_key] = new_key
+
     resolved_report = resolve_report_business_key(er, report_id_hint)
     if er.report and resolved_report:
+        old_report_key = er.report.business_key
         er.report.business_key = resolved_report
         er.report.report_no = resolved_report
+        _record_mapping("EightDReport", old_report_key, er.report.business_key)
     if er.event and er.event.event_id:
+        old_event_key = er.event.business_key
         er.event.business_key = er.event.event_id
+        _record_mapping("ProductEvent", old_event_key, er.event.business_key)
     for fm in er.failure_modes:
         if fm.mode_code:
+            old_key = fm.business_key
             fm.business_key = fm.mode_code
+            _record_mapping("FailureMode", old_key, fm.business_key)
     for cause in er.causes:
         if cause.cause_id:
+            old_key = cause.business_key
             cause.business_key = cause.cause_id
+            _record_mapping("CauseItem", old_key, cause.business_key)
     for action in er.actions:
         if action.action_id:
+            old_key = action.business_key
             action.business_key = action.action_id
+            _record_mapping("ActionItem", old_key, action.business_key)
     for pi in er.product_instances:
         if pi.serial_number:
+            old_key = pi.business_key
             pi.business_key = pi.serial_number
+            _record_mapping("ProductInstance", old_key, pi.business_key)
     for ps in er.part_serials:
         if ps.part_key:
+            old_key = ps.business_key
             ps.business_key = ps.part_key
+            _record_mapping("PartSerial", old_key, ps.business_key)
     for org in er.organizations:
         if org.org_code:
+            old_key = org.business_key
             org.business_key = org.org_code
+            _record_mapping("Organization", old_key, org.business_key)
     for person in er.persons:
         if person.person_id:
+            old_key = person.business_key
             person.business_key = person.person_id
+            _record_mapping("Person", old_key, person.business_key)
+    for product in er.failure_products:
+        if product.business_key:
+            old_key = product.business_key
+            canonical_key = _build_failure_product_key(
+                kb_part_name=product.KBPartName or product.canonical_name,
+                kb_part_number=product.KBPartNumber,
+            )
+            product.business_key = canonical_key
+            _record_mapping("FailureProduct", old_key, product.business_key)
+    for index, mention in enumerate(er.failure_product_mentions):
+        old_key = mention.business_key
+        report_scope = (
+            mention.report_no
+            or resolved_report
+            or (report_id_hint.strip() if report_id_hint else None)
+            or "UNKNOWN"
+        )
+        if not mention.business_key or mention.business_key.startswith("UNKNOWN"):
+            mention.business_key = _build_failure_product_mention_key(
+                report_scope=report_scope,
+                kb_part_name=mention.KBPartName,
+                kb_part_number=mention.KBPartNumber,
+                amount=mention.Amount,
+                index=index,
+            )
+        _record_mapping("FailureProductMention", old_key, mention.business_key)
+        if mention.failure_product_key:
+            mention.failure_product_key = _build_failure_product_key(
+                kb_part_name=mention.KBPartName,
+                kb_part_number=mention.KBPartNumber,
+            )
+    return key_mapping
+
+
+def _sync_relationship_endpoint_keys(
+    er: ExtractionResult,
+    key_mapping: dict[str, dict[str, str]],
+) -> None:
+    """当实体 business_key 被归一后，同步修正显式 relationships 的端点 key。"""
+    if not key_mapping:
+        return
+    for relation in er.relationships:
+        from_map = key_mapping.get(relation.from_label)
+        if from_map:
+            relation.from_key = from_map.get(relation.from_key, relation.from_key)
+        to_map = key_mapping.get(relation.to_label)
+        if to_map:
+            relation.to_key = to_map.get(relation.to_key, relation.to_key)
+
+
+def _sync_chunk_business_keys(
+    er: ExtractionResult,
+    report_id_hint: str | None = None,
+) -> None:
+    """让 chunk/report/supporting_chunks 的 report scope 保持一致。"""
+    if not er.chunks:
+        return
+
+    resolved_report = resolve_report_business_key(er, report_id_hint)
+    if not resolved_report:
+        return
+
+    chunk_key_mapping: dict[str, str] = {}
+    for chunk in er.chunks:
+        old_chunk_id = chunk.chunk_id
+        if "#" in old_chunk_id:
+            suffix = old_chunk_id.split("#", 1)[1]
+        else:
+            suffix = f"full_document#{chunk.para_idx}"
+        new_chunk_id = f"{resolved_report}#{suffix}"
+        chunk.report_id = resolved_report
+        chunk.chunk_id = new_chunk_id
+        if old_chunk_id != new_chunk_id:
+            chunk_key_mapping[old_chunk_id] = new_chunk_id
+
+    if not chunk_key_mapping:
+        return
+
+    def _rewrite_supporting_chunks(entity) -> None:
+        supporting_chunks = getattr(entity, "supporting_chunks", None)
+        if supporting_chunks is None:
+            return
+        entity.supporting_chunks = [
+            chunk_key_mapping.get(chunk_id, chunk_id) for chunk_id in supporting_chunks
+        ]
+
+    entities = [
+        er.report,
+        er.event,
+        *er.failure_modes,
+        *er.causes,
+        *er.actions,
+        *er.product_instances,
+        *er.part_serials,
+        *er.organizations,
+        *er.persons,
+        *er.failure_products,
+        *er.failure_product_mentions,
+    ]
+    for entity in entities:
+        if entity is None:
+            continue
+        _rewrite_supporting_chunks(entity)
+
+    for relation in er.relationships:
+        if relation.from_label == "Chunk":
+            relation.from_key = chunk_key_mapping.get(relation.from_key, relation.from_key)
+        if relation.to_label == "Chunk":
+            relation.to_key = chunk_key_mapping.get(relation.to_key, relation.to_key)
 
 
 def _action_rel_type(action_type: str | None) -> str:
@@ -290,6 +463,40 @@ def _looks_like_company_name(name: str | None) -> bool:
         return False
     lowered = name.strip().lower()
     return any(marker in lowered for marker in _COMPANY_MARKERS)
+
+
+def _looks_like_operator_name(name: str | None) -> bool:
+    if not name:
+        return False
+    lowered = name.strip().lower()
+    return any(marker in lowered for marker in _OPERATOR_MARKERS)
+
+
+def _is_noisy_org_name(name: str | None) -> bool:
+    if not name:
+        return True
+    stripped = name.strip()
+    if not stripped:
+        return True
+    if stripped[0] in {"且", "并", "而", "及", "和", "与"}:
+        return True
+    if any(token in stripped for token in _OPERATOR_NOISE_TOKENS):
+        return True
+    if len(stripped) > 18 and "有限公司" not in stripped and "集团" not in stripped:
+        return True
+    if any(p in stripped for p in ("，", "。", "；", ";", ",", ".", "：", ":")):
+        return True
+    return False
+
+
+def _is_generic_supplier_name(name: str | None) -> bool:
+    if not name:
+        return False
+    stripped = name.strip()
+    if not stripped:
+        return False
+    lowered = stripped.lower()
+    return stripped in _GENERIC_SUPPLIER_NAMES or lowered in _GENERIC_SUPPLIER_NAMES
 
 
 def _looks_like_department_name(name: str | None) -> bool:
@@ -361,8 +568,18 @@ def normalize_organizations(er: ExtractionResult) -> dict[str, str]:
 
         if not org_name and not org_type:
             continue
+        if _is_generic_supplier_name(org_name or org.business_key):
+            continue
+        if (
+            not _find_canonical_org_entry(org.business_key)
+            and not _find_canonical_org_entry(org.org_name)
+            and _is_noisy_org_name(org_name or org.business_key)
+        ):
+            continue
         if _looks_like_supplier(org):
             org.org_type = "供应商"
+        elif _looks_like_operator_name(org_name) or "运营商" in org_type:
+            org.org_type = "运营商"
         elif _looks_like_department_name(org_name):
             if not org_type:
                 org.org_type = "部门"
@@ -469,6 +686,7 @@ def _looks_like_orgish_name(name: str | None) -> bool:
         return False
     return (
         _looks_like_company_name(name)
+        or _looks_like_operator_name(name)
         or _looks_like_department_name(name)
         or "供应商" in name
         or "客户" in name
@@ -605,34 +823,65 @@ def _organization_match_candidates(org) -> set[str]:
     return candidates
 
 
+def _extract_operator_names_from_text(text: str) -> set[str]:
+    if not text:
+        return set()
+    names: set[str] = set()
+    for match in _OPERATOR_NAME_RE.finditer(text):
+        candidate = match.group(0).strip("：:;；，,。. ")
+        if _is_noisy_org_name(candidate):
+            continue
+        names.add(candidate)
+    return names
+
+
 def materialize_organizations_from_action_owners(er: ExtractionResult) -> None:
-    """当 LLM 漏掉 organizations 时, 从 action owner_name 保守补最小 Organization。"""
+    """当 LLM 漏掉 organizations 时, 从多来源字段与文本保守补齐 Organization。"""
     existing_keys = {org.business_key for org in er.organizations}
-    existing_names = {(org.org_name or "").strip() for org in er.organizations}
+    existing_names = {_normalize_match_text(org.org_name) for org in er.organizations if org.org_name}
+    lexicon = load_lexicon()
+    alias_entries = lexicon.get("organization_aliases", [])
 
-    for action in er.actions:
-        owner_name = (action.owner_name or "").strip()
-        if not owner_name:
-            continue
+    def _infer_org_type(name: str, preferred_type: str | None = None) -> str | None:
+        if preferred_type:
+            return preferred_type
+        if _looks_like_operator_name(name):
+            return "运营商"
+        if "供应商" in name:
+            return "供应商"
+        return None
 
-        entry = _find_canonical_org_entry(owner_name)
+    def _append_org(
+        *,
+        raw_name: str,
+        supporting_chunks: list[str],
+        preferred_type: str | None = None,
+    ) -> None:
+        name = (raw_name or "").strip()
+        if not name:
+            return
+
+        entry = _find_canonical_org_entry(name)
+        if _is_generic_supplier_name(name) and entry is None:
+            return
+        if _is_noisy_org_name(name) and entry is None:
+            return
         if entry:
-            business_key = entry.get("canonical_code") or owner_name
-            org_name = entry.get("canonical_name") or owner_name
-            org_type = entry.get("org_type")
-        elif _looks_like_orgish_name(owner_name):
+            business_key = entry.get("canonical_code") or name
+            org_name = entry.get("canonical_name") or name
+            org_type = entry.get("org_type") or _infer_org_type(name, preferred_type)
+        elif _looks_like_orgish_name(name):
             business_key = (
-                _build_local_org_business_key(er, owner_name)
-                if _looks_like_generic_org_name(owner_name)
-                else owner_name
+                _build_local_org_business_key(er, name) if _looks_like_generic_org_name(name) else name
             )
-            org_name = owner_name
-            org_type = "供应商" if "供应商" in owner_name else None
+            org_name = name
+            org_type = _infer_org_type(name, preferred_type)
         else:
-            continue
+            return
 
-        if business_key in existing_keys or org_name in existing_names:
-            continue
+        normalized_name = _normalize_match_text(org_name)
+        if business_key in existing_keys or normalized_name in existing_names:
+            return
 
         er.organizations.append(
             Organization(
@@ -640,11 +889,74 @@ def materialize_organizations_from_action_owners(er: ExtractionResult) -> None:
                 org_code=business_key,
                 org_name=org_name,
                 org_type=org_type,
-                supporting_chunks=list(action.supporting_chunks),
+                supporting_chunks=list(supporting_chunks),
             )
         )
         existing_keys.add(business_key)
-        existing_names.add(org_name)
+        if normalized_name:
+            existing_names.add(normalized_name)
+
+    for action in er.actions:
+        _append_org(
+            raw_name=action.owner_name or "",
+            supporting_chunks=list(action.supporting_chunks),
+        )
+
+    if er.report and er.report.owner_name:
+        _append_org(
+            raw_name=er.report.owner_name,
+            supporting_chunks=list(er.report.supporting_chunks),
+        )
+    if er.event and er.event.reporter_name:
+        _append_org(
+            raw_name=er.event.reporter_name,
+            supporting_chunks=list(er.event.supporting_chunks),
+        )
+    for product_instance in er.product_instances:
+        _append_org(
+            raw_name=product_instance.owner_name or "",
+            supporting_chunks=list(product_instance.supporting_chunks),
+            preferred_type="运营商" if _looks_like_operator_name(product_instance.owner_name) else None,
+        )
+    for part_serial in er.part_serials:
+        _append_org(
+            raw_name=part_serial.supplier_name or "",
+            supporting_chunks=list(part_serial.supporting_chunks),
+            preferred_type="供应商",
+        )
+
+    for chunk in er.chunks:
+        text = chunk.text or ""
+        if not text:
+            continue
+        normalized_chunk = _normalize_match_text(text)
+        if not normalized_chunk:
+            continue
+
+        for entry in alias_entries:
+            canonical_name = entry.get("canonical_name") or ""
+            canonical_code = entry.get("canonical_code") or canonical_name
+            if not canonical_code:
+                continue
+            aliases = [canonical_name, *entry.get("aliases", []), entry.get("canonical_code", "")]
+            normalized_aliases = {
+                _normalize_match_text(alias)
+                for alias in aliases
+                if alias and len(_normalize_match_text(alias)) >= 3
+            }
+            if any(alias in normalized_chunk for alias in normalized_aliases):
+                _append_org(
+                    raw_name=canonical_name or canonical_code,
+                    supporting_chunks=[chunk.chunk_id],
+                    preferred_type=entry.get("org_type"),
+                )
+
+        for operator_name in _extract_operator_names_from_text(text):
+            _append_org(
+                raw_name=operator_name,
+                supporting_chunks=[chunk.chunk_id],
+                preferred_type="运营商",
+            )
 
 
 def materialize_persons_from_actor_fields(er: ExtractionResult) -> None:
@@ -683,6 +995,167 @@ def materialize_persons_from_actor_fields(er: ExtractionResult) -> None:
         )
         existing_keys.add(business_key)
         existing_names.add(person_name)
+
+
+def _normalize_part_token(value: str | None) -> str:
+    normalized = _normalize_match_text(value)
+    return normalized.upper() if normalized else ""
+
+
+def _extract_family_code(kb_part_name: str | None, kb_part_number: str | None) -> str | None:
+    for text in (kb_part_name, kb_part_number):
+        if not text:
+            continue
+        matched = _FAMILY_TOKEN_RE.search(text)
+        if matched:
+            return matched.group(1).upper()
+    return None
+
+
+def _build_failure_product_key(*, kb_part_name: str | None, kb_part_number: str | None) -> str:
+    family_code = _extract_family_code(kb_part_name, kb_part_number)
+    if family_code:
+        return f"FP-FAMILY::{family_code}"
+    normalized_pn = _normalize_part_token(kb_part_number)
+    if normalized_pn:
+        return f"FP-PN::{normalized_pn}"
+    normalized_name = _normalize_part_token(kb_part_name)
+    if normalized_name:
+        return f"FP-NAME::{normalized_name}"
+    return "FP-UNKNOWN"
+
+
+def _parse_amount(raw_amount: str | None) -> tuple[float | None, str | None]:
+    if not raw_amount:
+        return None, None
+    matched = _AMOUNT_RE.search(raw_amount.strip())
+    if not matched:
+        return None, None
+    value = matched.group("value")
+    unit = matched.group("unit")
+    return (float(value) if value else None), (unit.lower() if unit else None)
+
+
+def _build_failure_product_mention_key(
+    *,
+    report_scope: str,
+    kb_part_name: str | None,
+    kb_part_number: str | None,
+    amount: str | None,
+    index: int,
+) -> str:
+    normalized_name = _normalize_part_token(kb_part_name) or "NONAME"
+    normalized_number = _normalize_part_token(kb_part_number) or "NONUM"
+    normalized_amount = _normalize_part_token(amount) or "NOAMOUNT"
+    return (
+        f"FPM::{report_scope}::{normalized_name}::{normalized_number}::{normalized_amount}::{index}"
+    )
+
+
+def materialize_failure_products(er: ExtractionResult) -> None:
+    """构建 FailureProduct / FailureProductMention，并做跨报告稳定归一。"""
+    report_scope = (er.report.business_key if er.report else None) or "UNKNOWN"
+
+    if not er.failure_product_mentions and er.part_serials:
+        for idx, part in enumerate(er.part_serials):
+            mention_key = _build_failure_product_mention_key(
+                report_scope=report_scope,
+                kb_part_name=None,
+                kb_part_number=part.serial_number or part.part_key,
+                amount=None,
+                index=idx,
+            )
+            er.failure_product_mentions.append(
+                FailureProductMention(
+                    business_key=mention_key,
+                    report_no=report_scope,
+                    KBPartName=None,
+                    KBPartNumber=part.serial_number or part.part_key,
+                    Amount=None,
+                    supporting_chunks=part.supporting_chunks,
+                    source_doc_id=part.source_doc_id,
+                    source_section=part.source_section,
+                    confidence=part.confidence,
+                    extraction_version=part.extraction_version,
+                    schema_version=part.schema_version,
+                    review_status=part.review_status,
+                    owner_id=part.owner_id,
+                    sensitivity=part.sensitivity,
+                )
+            )
+
+    products_by_key: dict[str, FailureProduct] = {p.business_key: p for p in er.failure_products}
+    deduped_mentions: list[FailureProductMention] = []
+    seen_mentions: set[str] = set()
+
+    for index, mention in enumerate(er.failure_product_mentions):
+        mention.report_no = mention.report_no or report_scope
+        mention.amount_value, mention.amount_unit = _parse_amount(mention.Amount)
+
+        product_key = _build_failure_product_key(
+            kb_part_name=mention.KBPartName,
+            kb_part_number=mention.KBPartNumber,
+        )
+        mention.failure_product_key = product_key
+
+        mention_key = mention.business_key
+        if not mention_key or mention_key.startswith("UNKNOWN"):
+            mention_key = _build_failure_product_mention_key(
+                report_scope=mention.report_no or report_scope,
+                kb_part_name=mention.KBPartName,
+                kb_part_number=mention.KBPartNumber,
+                amount=mention.Amount,
+                index=index,
+            )
+        mention.business_key = mention_key
+        if mention.business_key in seen_mentions:
+            continue
+        seen_mentions.add(mention.business_key)
+        deduped_mentions.append(mention)
+
+        product = products_by_key.get(product_key)
+        if product is None:
+            canonical_name = (mention.KBPartName or mention.KBPartNumber or product_key).strip()
+            products_by_key[product_key] = FailureProduct(
+                business_key=product_key,
+                canonical_name=canonical_name,
+                family_code=_extract_family_code(mention.KBPartName, mention.KBPartNumber),
+                KBPartName=mention.KBPartName,
+                KBPartNumber=mention.KBPartNumber,
+                aliases=[canonical_name] if canonical_name else [],
+                kb_part_numbers=[mention.KBPartNumber] if mention.KBPartNumber else [],
+                supporting_chunks=list(mention.supporting_chunks),
+                source_doc_id=mention.source_doc_id,
+                source_section=list(mention.source_section),
+                confidence=mention.confidence,
+                extraction_version=mention.extraction_version,
+                schema_version=mention.schema_version,
+                review_status=mention.review_status,
+                owner_id=mention.owner_id,
+                sensitivity=mention.sensitivity,
+            )
+            continue
+
+        if mention.KBPartName:
+            alias_set = set(product.aliases)
+            alias_set.add(mention.KBPartName.strip())
+            product.aliases = sorted(alias_set)
+            if not product.KBPartName:
+                product.KBPartName = mention.KBPartName
+        if mention.KBPartNumber:
+            pn_set = set(product.kb_part_numbers)
+            pn_set.add(mention.KBPartNumber.strip())
+            product.kb_part_numbers = sorted(pn_set)
+            if not product.KBPartNumber:
+                product.KBPartNumber = mention.KBPartNumber
+        product.supporting_chunks = _merge_unique_text_list(
+            product.supporting_chunks + mention.supporting_chunks
+        )
+        product.source_section = _merge_unique_text_list(product.source_section + mention.source_section)
+        product.confidence = max(product.confidence, mention.confidence)
+
+    er.failure_product_mentions = deduped_mentions
+    er.failure_products = sorted(products_by_key.values(), key=lambda item: item.business_key)
 
 
 def normalize_person_relationships(er: ExtractionResult) -> None:
@@ -1013,6 +1486,26 @@ def infer_relationships(er: ExtractionResult) -> list[RelationTriple]:
                     rel_type="AFFECTED_SERIAL",
                 )
             )
+        for mention in er.failure_product_mentions:
+            rels.append(
+                RelationTriple(
+                    from_label="EightDReport",
+                    from_key=report_bk,
+                    to_label="FailureProductMention",
+                    to_key=mention.business_key,
+                    rel_type="MENTIONS_FAILURE_PRODUCT",
+                )
+            )
+            if mention.failure_product_key:
+                rels.append(
+                    RelationTriple(
+                        from_label="FailureProductMention",
+                        from_key=mention.business_key,
+                        to_label="FailureProduct",
+                        to_key=mention.failure_product_key,
+                        rel_type="INSTANCE_OF_FAILURE_PRODUCT",
+                    )
+                )
 
     if event_bk and single_failure_mode:
         rels.append(
@@ -1119,9 +1612,14 @@ def enrich_extraction_result(
     report_id_hint: str | None = None,
 ) -> ExtractionResult:
     """同步 business_key, 合并推断关系, 保证入图时边不缺失."""
-    _sync_entity_business_keys(er, report_id_hint=report_id_hint)
+    key_mapping = _sync_entity_business_keys(er, report_id_hint=report_id_hint)
+    _sync_relationship_endpoint_keys(er, key_mapping)
+    _sync_chunk_business_keys(er, report_id_hint=report_id_hint)
     materialize_persons_from_actor_fields(er)
     materialize_organizations_from_action_owners(er)
+    materialize_failure_products(er)
+    secondary_key_mapping = _sync_entity_business_keys(er, report_id_hint=report_id_hint)
+    _sync_relationship_endpoint_keys(er, secondary_key_mapping)
     org_alias_map = normalize_organizations(er)
     normalize_report_owner(er)
     normalize_event_severity(er)

@@ -4,7 +4,7 @@ from app.core.config import settings
 from app.llm.base import LLMClient, LLMError, LLMUsage
 from app.llm.codex_client import CodexClient
 from app.llm.fallback_client import FallbackLLMClient
-from app.llm.minimax_client import MinimaxClient
+from app.llm.litellm_client import LiteLLMClient
 from app.llm.mock_client import MockLLMClient
 
 __all__ = [
@@ -13,7 +13,7 @@ __all__ = [
     "LLMClient",
     "LLMError",
     "LLMUsage",
-    "MinimaxClient",
+    "LiteLLMClient",
     "MockLLMClient",
     "build_llm_client",
     "effective_llm_model",
@@ -28,8 +28,8 @@ def effective_llm_model(provider: str | None = None) -> str:
         return "mock-v0.1"
     if provider == "codex":
         return settings.codex_executor_label or "codex-local"
-    if provider == "minimax":
-        return settings.minimax_model or "minimax"
+    if provider == "litellm":
+        return settings.litellm_model or "litellm"
     return provider
 
 
@@ -46,16 +46,16 @@ def build_llm_client(provider: str) -> LLMClient:
             max_retries=settings.codex_max_retries,
             executor_label=settings.codex_executor_label,
         )
-    if provider_normalized == "minimax":
-        return MinimaxClient(
-            api_key=settings.minimax_api_key,
-            base_url=settings.minimax_base_url,
-            model=settings.minimax_model,
-            timeout_seconds=settings.minimax_timeout_seconds,
-            max_retries=settings.minimax_max_retries,
+    if provider_normalized == "litellm":
+        return LiteLLMClient(
+            api_key=settings.litellm_api_key,
+            base_url=settings.litellm_base_url,
+            model=settings.litellm_model,
+            timeout_seconds=settings.litellm_timeout_seconds,
+            max_retries=settings.litellm_max_retries,
         )
     raise LLMError(
-        f"未知 llm_provider: {provider_normalized!r} (支持: mock / codex / minimax)"
+        f"未知 llm_provider: {provider_normalized!r} (支持: mock / codex / litellm)"
     )
 
 
@@ -64,7 +64,7 @@ def get_llm_client() -> LLMClient:
 
     - 'mock' → MockLLMClient (默认)
     - 'codex' → CodexClient (调用本地 Codex 抽取服务)
-    - 'minimax' → MinimaxClient (OpenAI-compatible endpoint)
+    - 'litellm' → LiteLLMClient (OpenAI-compatible endpoint)
     """
     provider = (settings.llm_provider or "mock").lower()
     client = build_llm_client(provider)

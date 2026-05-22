@@ -10,6 +10,8 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from urllib.parse import urlparse
 from uuid import UUID
 
 import structlog
@@ -21,6 +23,8 @@ from app.schemas.entity import (
     ActionItem,
     CauseItem,
     EightDReport,
+    FailureProduct,
+    FailureProductMention,
     FailureMode,
     Organization,
     PartSerial,
@@ -49,6 +53,8 @@ _BUSINESS_LABELS: tuple[tuple[str, type], ...] = (
     ("PartSerial", PartSerial),
     ("Organization", Organization),
     ("Person", Person),
+    ("FailureProduct", FailureProduct),
+    ("FailureProductMention", FailureProductMention),
 )
 
 
@@ -92,6 +98,113 @@ def _chunk_props(c: ChunkSchema) -> dict:
     return props
 
 
+def _source_filename(minio_key: str) -> str | None:
+    """从 local:// 或 minio:// key 提取文件名。"""
+    if not minio_key:
+        return None
+    if minio_key.startswith("local://"):
+        return Path(minio_key[len("local://") :]).name or None
+    parsed = urlparse(minio_key)
+    path_part = (parsed.path or "").rstrip("/")
+    if path_part:
+        return Path(path_part).name or None
+    return minio_key.rstrip("/").split("/")[-1] or None
+
+
+async def _cleanup_existing_graph_for_document(
+    client: Neo4jClient,
+    *,
+    effective_document_id: UUID,
+    filename: str | None,
+    issue_title: str | None,
+) -> dict[str, int]:
+    """写入前清理同文档的历史子图，避免前端看到新旧节点混合。"""
+    deleted_by_source_doc = 0
+    deleted_by_filename = 0
+    deleted_stale_unknown = 0
+
+    q_by_source_doc = """
+    MATCH (n)
+    WHERE n.source_doc_id = $source_doc_id
+    DETACH DELETE n
+    RETURN count(n) AS deleted
+    """
+    result = await client.execute_write(
+        q_by_source_doc,
+        {"source_doc_id": str(effective_document_id)},
+    )
+    if result:
+        deleted_by_source_doc = int(result[0].get("deleted", 0))
+
+    if filename:
+        q_by_filename = """
+        MATCH (r:EightDReport {filename:$filename})
+        OPTIONAL MATCH (r)-[*0..2]-(n)
+        WITH collect(DISTINCT r) + collect(DISTINCT n) AS nodes
+        UNWIND nodes AS node
+        WITH DISTINCT node WHERE node IS NOT NULL
+        DETACH DELETE node
+        RETURN count(node) AS deleted
+        """
+        result = await client.execute_write(q_by_filename, {"filename": filename})
+        if result:
+            deleted_by_filename = int(result[0].get("deleted", 0))
+
+    if issue_title:
+        q_stale_unknown = """
+        MATCH (r:EightDReport)
+        WHERE r.filename IS NULL
+          AND r.issue_title = $issue_title
+          AND (r.business_key = 'FS-UNKNOWN' OR r.report_no = 'FS-UNKNOWN')
+        OPTIONAL MATCH (c:Chunk)-[:CHUNK_OF_REPORT]->(r)
+        WITH r, count(c) AS chunk_cnt
+        WHERE chunk_cnt = 0
+        OPTIONAL MATCH (r)-[*0..2]-(n)
+        WITH collect(DISTINCT r) + collect(DISTINCT n) AS nodes
+        UNWIND nodes AS node
+        WITH DISTINCT node WHERE node IS NOT NULL
+        DETACH DELETE node
+        RETURN count(node) AS deleted
+        """
+        result = await client.execute_write(q_stale_unknown, {"issue_title": issue_title})
+        if result:
+            deleted_stale_unknown = int(result[0].get("deleted", 0))
+
+    return {
+        "deleted_by_source_doc": deleted_by_source_doc,
+        "deleted_by_filename": deleted_by_filename,
+        "deleted_stale_unknown": deleted_stale_unknown,
+    }
+
+
+async def _reconcile_legacy_unknown_chunk(
+    client: Neo4jClient,
+    *,
+    good_chunk_business_key: str,
+) -> int:
+    """把历史 UNKNOWN chunk 的 MENTIONED_IN 迁到当前 chunk，再删除旧 chunk。"""
+    q = """
+    MATCH (good:Chunk {chunk_business_key:$good_chunk})
+    MATCH (bad:Chunk)
+    WHERE bad.chunk_business_key STARTS WITH 'UNKNOWN#'
+      AND bad.report_id = 'UNKNOWN'
+      AND bad.chunk_business_key <> $good_chunk
+      AND (bad.text STARTS WITH good.text OR good.text STARTS WITH bad.text)
+    OPTIONAL MATCH (n)-[:MENTIONED_IN]->(bad)
+    WITH good, bad, collect(DISTINCT n) AS nodes
+    FOREACH (node IN nodes |
+      MERGE (node)-[:MENTIONED_IN]->(good)
+    )
+    WITH bad
+    DETACH DELETE bad
+    RETURN count(DISTINCT bad) AS deleted_bad_chunks
+    """
+    result = await client.execute_write(q, {"good_chunk": good_chunk_business_key})
+    if not result:
+        return 0
+    return int(result[0].get("deleted_bad_chunks", 0))
+
+
 async def write_neo4j(
     ctx: PipelineContext,
     effective_document_id: UUID,
@@ -111,6 +224,16 @@ async def write_neo4j(
 
     nodes_written = 0
     rels_written = 0
+    filename = _source_filename(ctx.minio_key)
+    issue_title = er.report.issue_title if er.report else None
+
+    cleanup_stats = await _cleanup_existing_graph_for_document(
+        client,
+        effective_document_id=effective_document_id,
+        filename=filename,
+        issue_title=issue_title,
+    )
+    logger.info("write_neo4j.pre_cleanup", **cleanup_stats, filename=filename)
 
     # ------------------------------------------------------------------
     # 1. 写入业务实体节点
@@ -118,89 +241,164 @@ async def write_neo4j(
 
     # 主线（单实体）
     if er.report:
+        report_props = _node_props(er.report)
+        if filename:
+            report_props["filename"] = filename
+        report_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "EightDReport",
             {"business_key": er.report.business_key},
-            _node_props(er.report),
+            report_props,
         )
         nodes_written += 1
 
     if er.event:
+        event_props = _node_props(er.event)
+        event_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "ProductEvent",
             {"business_key": er.event.business_key},
-            _node_props(er.event),
+            event_props,
         )
         nodes_written += 1
 
     # 必抽列表
     for fm in er.failure_modes:
+        fm_props = _node_props(fm)
+        fm_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "FailureMode",
             {"business_key": fm.business_key},
-            _node_props(fm),
+            fm_props,
         )
         nodes_written += 1
 
     for cause in er.causes:
+        cause_props = _node_props(cause)
+        cause_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "CauseItem",
             {"business_key": cause.business_key},
-            _node_props(cause),
+            cause_props,
         )
         nodes_written += 1
 
     for action in er.actions:
+        action_props = _node_props(action)
+        action_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "ActionItem",
             {"business_key": action.business_key},
-            _node_props(action),
+            action_props,
         )
         nodes_written += 1
 
     # 可选实体
     for pi in er.product_instances:
+        pi_props = _node_props(pi)
+        pi_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "ProductInstance",
             {"business_key": pi.business_key},
-            _node_props(pi),
+            pi_props,
         )
         nodes_written += 1
 
     for ps in er.part_serials:
+        ps_props = _node_props(ps)
+        ps_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "PartSerial",
             {"business_key": ps.business_key},
-            _node_props(ps),
+            ps_props,
         )
         nodes_written += 1
 
     for org in er.organizations:
+        org_props = _node_props(org)
+        org_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "Organization",
             {"business_key": org.business_key},
-            _node_props(org),
+            org_props,
         )
         nodes_written += 1
 
     for person in er.persons:
+        person_props = _node_props(person)
+        person_props["source_doc_id"] = str(effective_document_id)
         await client.merge_node(
             "Person",
             {"business_key": person.business_key},
-            _node_props(person),
+            person_props,
+        )
+        nodes_written += 1
+    for failure_product in er.failure_products:
+        fp_props = _node_props(failure_product)
+        fp_props["source_doc_id"] = str(effective_document_id)
+        await client.merge_node(
+            "FailureProduct",
+            {"business_key": failure_product.business_key},
+            fp_props,
+        )
+        nodes_written += 1
+    for mention in er.failure_product_mentions:
+        mention_props = _node_props(mention)
+        mention_props["source_doc_id"] = str(effective_document_id)
+        await client.merge_node(
+            "FailureProductMention",
+            {"business_key": mention.business_key},
+            mention_props,
         )
         nodes_written += 1
 
     # ------------------------------------------------------------------
     # 2. 写入 Chunk 节点（从 ctx.chunks，与 v1 行为一致）
     # ------------------------------------------------------------------
+    valid_chunks: list[ChunkSchema] = []
     for c in ctx.chunks:
+        if not c.chunk_id or not c.report_id:
+            logger.warning(
+                "write_neo4j.skip_invalid_chunk",
+                chunk_id=getattr(c, "chunk_id", None),
+                report_id=getattr(c, "report_id", None),
+            )
+            continue
         await client.merge_node(
             "Chunk",
             {"chunk_business_key": c.chunk_id},
-            _chunk_props(c),
+            {
+                **_chunk_props(c),
+                "source_doc_id": str(effective_document_id),
+            },
         )
         nodes_written += 1
+        valid_chunks.append(c)
+
+    migrated_unknown_chunks = 0
+    for c in valid_chunks:
+        migrated_unknown_chunks += await _reconcile_legacy_unknown_chunk(
+            client,
+            good_chunk_business_key=c.chunk_id,
+        )
+    if migrated_unknown_chunks:
+        logger.info(
+            "write_neo4j.migrated_legacy_unknown_chunks",
+            migrated_unknown_chunks=migrated_unknown_chunks,
+        )
+
+    # 主干关系：每个 chunk 都挂到 report，避免图谱被分裂成孤岛
+    if er.report:
+        for c in valid_chunks:
+            await client.merge_relationship(
+                "Chunk",
+                {"chunk_business_key": c.chunk_id},
+                "CHUNK_OF_REPORT",
+                "EightDReport",
+                {"business_key": er.report.business_key},
+                None,
+            )
+            rels_written += 1
 
     # ------------------------------------------------------------------
     # 3. 写入显式关系（来自 ExtractionResult.relationships）
@@ -225,6 +423,12 @@ async def write_neo4j(
         existing_keys.add(("Organization", org.business_key))
     for person in er.persons:
         existing_keys.add(("Person", person.business_key))
+    for failure_product in er.failure_products:
+        existing_keys.add(("FailureProduct", failure_product.business_key))
+    for mention in er.failure_product_mentions:
+        existing_keys.add(("FailureProductMention", mention.business_key))
+    for c in valid_chunks:
+        existing_keys.add(("Chunk", c.chunk_id))
 
     skipped_rels: list[dict] = []
     for rel in er.relationships:
@@ -288,9 +492,10 @@ async def write_neo4j(
         _collect_mentions(ps)
     for org in er.organizations:
         _collect_mentions(org)
-    for person in er.persons:
-        _collect_mentions(person)
-
+    for failure_product in er.failure_products:
+        _collect_mentions(failure_product)
+    for mention in er.failure_product_mentions:
+        _collect_mentions(mention)
     if mentioned_pairs:
         cypher = """
         UNWIND $items AS x

@@ -16,9 +16,12 @@ from app.schemas.entity import (
     CauseItem,
     Chunk,
     EightDReport,
+    FailureProduct,
+    FailureProductMention,
     FailureMode,
     Organization,
     PartSerial,
+    Person,
     ProductEvent,
     ProductInstance,
 )
@@ -39,6 +42,9 @@ __all__ = [
     "ProductInstance",
     "PartSerial",
     "Organization",
+    "Person",
+    "FailureProduct",
+    "FailureProductMention",
     "Chunk",
     # extraction aggregate
     "ExtractionResult",

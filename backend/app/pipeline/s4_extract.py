@@ -81,14 +81,15 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         },
     )
 
+    # 把 s2 切好的 chunks 塞回 ExtractionResult（LLM 不重复输出 chunks）
+    result.chunks = ctx.chunks
+
     # 先把团队表/编写/核对等结构化人员信息补进结果，再统一做关系归一。
     result = enrich_personnel_from_tables(ctx, result)
 
-    # 同步 business_key、补全 relationships（LLM 常漏填或字段名不一致）
+    # 同步 business_key、chunk scope 与 relationships（LLM 常漏填或字段名不一致）
     result = enrich_extraction_result(result, report_id_hint=ctx.report_id_hint)
-
-    # 把 s2 切好的 chunks 塞回 ExtractionResult（LLM 不重复输出 chunks）
-    result.chunks = ctx.chunks
+    ctx.chunks = result.chunks
 
     # 统计填入（s6_write._update_run_status 会读 llm_prompt_tokens / llm_completion_tokens）
     result.stats = {

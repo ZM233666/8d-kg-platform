@@ -100,10 +100,12 @@
 - `供应商热处理参数失控`
 - `质量部检验规范未覆盖关键硬度项`
 - `客户现场维护流程不当`
+- `运营商现场维护流程不当`
 
 当前 runtime 推荐做法：
 
 - 输出 `Organization`
+- 运营主体优先标记 `org_type="运营商"`
 - 如果明确是报告责任归属，可补：
   - `EightDReport -> RESPONSIBLE_ORG -> Organization`
 

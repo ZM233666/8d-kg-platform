@@ -43,7 +43,7 @@ async def test_s2_split_keeps_whole_document_as_single_chunk() -> None:
 
 @pytest.mark.asyncio
 async def test_s2_split_falls_back_to_unknown_report_id() -> None:
-    """没有 report_id_hint 时, 应使用 UNKNOWN 构造唯一 chunk。"""
+    """没有 report_id_hint 时, 应使用稳定 DOC- 前缀构造唯一 chunk。"""
 
     ctx = PipelineContext(
         document_id=uuid4(),
@@ -55,8 +55,10 @@ async def test_s2_split_falls_back_to_unknown_report_id() -> None:
 
     assert len(out.chunks) == 1
     chunk = out.chunks[0]
-    assert chunk.chunk_id == "UNKNOWN#full_document#0"
-    assert chunk.report_id == "UNKNOWN"
+    expected_report_id = f"DOC-{str(ctx.document_id)[:8]}"
+    assert chunk.chunk_id == f"{expected_report_id}#full_document#0"
+    assert chunk.report_id == expected_report_id
+    assert out.report_id_hint == expected_report_id
     assert chunk.section_path == FULL_DOCUMENT_SECTION
     assert chunk.chunk_role == FULL_DOCUMENT_ROLE
     assert chunk.text == "整篇 8D 报告正文。"

@@ -129,6 +129,31 @@
       "supporting_chunks": []
     }
   ],
+  "failure_products": [
+    {
+      "business_key": "FP-FAMILY::EP2002",
+      "canonical_name": "EP2002",
+      "family_code": "EP2002",
+      "KBPartName": "EP2002阀",
+      "KBPartNumber": "G(R&S)7029/SMF01",
+      "aliases": ["EP2002阀", "EP2002"],
+      "kb_part_numbers": ["G(R&S)7029/SMF01"],
+      "supporting_chunks": []
+    }
+  ],
+  "failure_product_mentions": [
+    {
+      "business_key": "FPM::FS-2024-001::EP2002阀::G(R&S)7029/SMF01::5PCS::0",
+      "failure_product_key": "FP-FAMILY::EP2002",
+      "report_no": "FS-2024-001",
+      "KBPartName": "EP2002阀",
+      "KBPartNumber": "G(R&S)7029/SMF01",
+      "Amount": "5 pcs",
+      "amount_value": 5,
+      "amount_unit": "pcs",
+      "supporting_chunks": []
+    }
+  ],
   "relationships": [
     {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "EightDReport", "to_key": "FS-2024-001", "rel_type": "HAS_8D_REPORT", "properties": {}},
     {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
@@ -142,7 +167,9 @@
     {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "Person", "to_key": "PER-LOCAL::FS-2024-001::张工", "rel_type": "OWNED_BY_PERSON", "properties": {}},
     {"from_label": "ActionItem", "from_key": "ACT-FS-2024-001-1", "to_label": "Person", "to_key": "PER-LOCAL::FS-2024-001::李工", "rel_type": "OWNED_BY_PERSON", "properties": {}},
     {"from_label": "ActionItem", "from_key": "ACT-FS-2024-001-3", "to_label": "Person", "to_key": "PER-LOCAL::FS-2024-001::赵工", "rel_type": "OWNED_BY_PERSON", "properties": {}},
-    {"from_label": "PartSerial", "from_key": "OR-001::B2024-05", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "SUPPLIED_BY", "properties": {}}
+    {"from_label": "PartSerial", "from_key": "OR-001::B2024-05", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "SUPPLIED_BY", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "FailureProductMention", "to_key": "FPM::FS-2024-001::EP2002阀::G(R&S)7029/SMF01::5PCS::0", "rel_type": "MENTIONS_FAILURE_PRODUCT", "properties": {}},
+    {"from_label": "FailureProductMention", "from_key": "FPM::FS-2024-001::EP2002阀::G(R&S)7029/SMF01::5PCS::0", "to_label": "FailureProduct", "to_key": "FP-FAMILY::EP2002", "rel_type": "INSTANCE_OF_FAILURE_PRODUCT", "properties": {}}
   ],
   "chunks": [],
   "stats": {}

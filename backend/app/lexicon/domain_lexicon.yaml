@@ -46,6 +46,35 @@ organization_aliases:
       - "Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd."
       - "Knorr-Bremse Suzhou"
       - "KB苏州"
+  - canonical_code: "ORG-OP-LANZHOU-METRO"
+    canonical_name: "兰州地铁"
+    org_type: "运营商"
+    aliases:
+      - "兰州地铁"
+      - "兰州轨道交通"
+      - "兰州2号线项目"
+      - "ORG-LANZHOU-METRO"
+  - canonical_code: "ORG-OP-SHENZHEN-METRO"
+    canonical_name: "深圳地铁"
+    org_type: "运营商"
+    aliases:
+      - "深圳地铁"
+      - "深圳地铁运营"
+      - "深圳地铁运营集团"
+      - "深圳地铁运营集团有限公司"
+  - canonical_code: "ORG-OP-CSST"
+    canonical_name: "中建深铁"
+    org_type: "运营商"
+    aliases:
+      - "中建深铁"
+      - "中建深铁轨道交通有限公司"
+  - canonical_code: "ORG-CRRC-SIFANG"
+    canonical_name: "中车四方"
+    org_type: "客户"
+    aliases:
+      - "中车四方"
+      - "中车四方股份公司"
+      - "ORG-CSR-SIFANG"
 
 negation_markers:
   # 中文否定词（用于 Finding.polarity 判定）
