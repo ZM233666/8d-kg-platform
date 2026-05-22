@@ -20,9 +20,11 @@ from fastapi.testclient import TestClient
 
 
 class _FakeRunner(CodexExecRunner):
-    async def _run_command(self, cmd: list[str]) -> tuple[str, str, int]:
+    async def _run_command(self, cmd: list[str], prompt: str) -> tuple[str, str, int]:
         output_index = cmd.index("-o") + 1
         output_path = Path(cmd[output_index])
+        assert cmd[-1] == "-"
+        assert "抽取这份报告" in prompt
         await anyio.Path(output_path).write_text(
             json.dumps({"report": None, "event": None, "relationships": []}),
             encoding="utf-8",
@@ -31,7 +33,7 @@ class _FakeRunner(CodexExecRunner):
 
 
 class _FailRunner(CodexExecRunner):
-    async def _run_command(self, cmd: list[str]) -> tuple[str, str, int]:
+    async def _run_command(self, cmd: list[str], prompt: str) -> tuple[str, str, int]:
         return "", "boom", 1
 
 

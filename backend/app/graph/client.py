@@ -1,6 +1,5 @@
 """Neo4j 客户端：包装 AsyncDriver，提供幂等写入接口。"""
 
-from datetime import datetime, timezone
 
 from neo4j import AsyncDriver
 
@@ -14,6 +13,7 @@ ALLOWED_LABELS: set[str] = {
     "CauseItem",
     "ActionItem",
     "Organization",
+    "Person",
     # 治理
     "Chunk",
 }
@@ -32,6 +32,11 @@ ALLOWED_REL_TYPES: set[str] = {
     "AFFECTED_PRODUCT",
     "AFFECTED_SERIAL",
     "RESPONSIBLE_ORG",
+    "INVOLVES_PERSON",
+    "AUTHORED_BY_PERSON",
+    "REVIEWED_BY_PERSON",
+    "REPORTED_BY_PERSON",
+    "OWNED_BY_PERSON",
     "TARGET_SERIAL",
     "TARGET_PRODUCT",
     "INSTALLED_ON",
@@ -224,24 +229,28 @@ class Neo4jClient:
         for n in raw_nodes:
             if n is None:
                 continue
-            nodes.append({
-                "business_key": n.get("business_key"),
-                "labels": list(n.labels) if hasattr(n, "labels") else [],
-                "properties": _neo4j_to_json(dict(n)),
-            })
+            nodes.append(
+                {
+                    "business_key": n.get("business_key"),
+                    "labels": list(n.labels) if hasattr(n, "labels") else [],
+                    "properties": _neo4j_to_json(dict(n)),
+                }
+            )
 
         rel_records = await self.execute_read(rels_query, params)
         relationships = []
         for rec in rel_records:
             rel_props = rec["props"]
-            relationships.append({
-                "type": rec["rel_type"],
-                "start_bk": rec["start_bk"],
-                "start_label": rec["start_labels"][0] if rec["start_labels"] else None,
-                "end_bk": rec["end_bk"],
-                "end_label": rec["end_labels"][0] if rec["end_labels"] else None,
-                "properties": _neo4j_to_json(dict(rel_props)) if rel_props else {},
-            })
+            relationships.append(
+                {
+                    "type": rec["rel_type"],
+                    "start_bk": rec["start_bk"],
+                    "start_label": rec["start_labels"][0] if rec["start_labels"] else None,
+                    "end_bk": rec["end_bk"],
+                    "end_label": rec["end_labels"][0] if rec["end_labels"] else None,
+                    "properties": _neo4j_to_json(dict(rel_props)) if rel_props else {},
+                }
+            )
 
         if exclude_chunks:
             nodes = [n for n in nodes if "Chunk" not in n.get("labels", [])]
@@ -279,6 +288,7 @@ _UNIQUE_KEY_MAP: dict[str, str] = {
     "ProductInstance": "business_key",
     "PartSerial": "business_key",
     "Organization": "business_key",
+    "Person": "business_key",
     "Chunk": "chunk_business_key",
 }
 

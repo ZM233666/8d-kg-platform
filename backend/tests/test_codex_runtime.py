@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from uuid import uuid4
 
 import pytest
 from app.core.config import settings
-from app.llm import CodexClient, prompts
+from app.llm import CodexClient, MinimaxClient, build_llm_client, get_llm_client, prompts
 from app.llm.base import LLMError, LLMUsage
 from app.llm.fallback_client import FallbackLLMClient
 from app.pipeline import s4_extract
@@ -133,6 +134,29 @@ def _build_unknown_full_report_ctx() -> PipelineContext:
     )
 
 
+def _build_full_document_ctx() -> PipelineContext:
+    return PipelineContext(
+        document_id=uuid4(),
+        minio_key="documents/fs-005.docx",
+        report_id_hint="FS-005",
+        chunks=[
+            Chunk(
+                chunk_id="FS-005#full_document#0",
+                report_id="FS-005",
+                section_path=["full_document"],
+                para_idx=0,
+                chunk_role="unknown",
+                text=(
+                    "D2 问题描述：2022/8/19 车辆静调首次上电自检失败，制动系统报二级调节器压力超差故障。"
+                    "D4 根因分析：分析认为活塞销存在气孔导致变形。"
+                    "D5 纠正措施：更换故障阀并对库存件100%外观检。"
+                ),
+                token_count=48,
+            )
+        ],
+    )
+
+
 def test_select_codex_skill_returns_default_document_route() -> None:
     selection = select_codex_skill(_build_ctx())
 
@@ -169,6 +193,42 @@ def test_build_codex_system_prompt_includes_selected_modules() -> None:
     assert "Skill Module: 8d-relationship-normalization" in prompt
     assert "Skill Module: 8d-d4-root-cause-extraction" in prompt
     assert "最终只输出当前 runtime 支持的 ExtractionResult JSON" in prompt
+
+
+def test_build_llm_client_supports_minimax_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "minimax_api_key", "test-minimax-key")
+    monkeypatch.setattr(settings, "minimax_base_url", "https://api.minimax.chat/v1")
+    monkeypatch.setattr(settings, "minimax_model", "MiniMax-M2.7")
+    monkeypatch.setattr(settings, "minimax_timeout_seconds", 45)
+    monkeypatch.setattr(settings, "minimax_max_retries", 2)
+
+    client = build_llm_client("minimax")
+
+    assert isinstance(client, MinimaxClient)
+    assert client.base_url == "https://api.minimax.chat/v1"
+    assert client.model == "MiniMax-M2.7"
+
+
+def test_get_llm_client_wraps_codex_with_minimax_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "llm_provider", "codex")
+    monkeypatch.setattr(settings, "llm_fallback_provider", "minimax")
+    monkeypatch.setattr(settings, "llm_primary_soft_timeout_seconds", 30)
+    monkeypatch.setattr(settings, "minimax_api_key", "test-minimax-key")
+    monkeypatch.setattr(settings, "minimax_base_url", "https://api.minimax.chat/v1")
+    monkeypatch.setattr(settings, "minimax_model", "MiniMax-M2.7")
+
+    client = get_llm_client()
+
+    assert isinstance(client, FallbackLLMClient)
+    assert isinstance(client.primary, CodexClient)
+    assert isinstance(client.fallback, MinimaxClient)
+    assert client.primary_provider == "codex"
+    assert client.fallback_provider == "minimax"
+    assert client.primary_timeout_seconds == 30
 
 
 def test_select_codex_skill_adds_d2_module_for_event_chunks() -> None:
@@ -237,6 +297,20 @@ def test_select_codex_skill_adds_d2_d4_d5_modules_for_mixed_report() -> None:
 
 def test_select_codex_skill_adds_d2_d4_d5_modules_for_unknown_full_report_chunk() -> None:
     selection = select_codex_skill(_build_unknown_full_report_ctx())
+
+    assert selection.prompt_modules == (
+        "8d-report-extraction-core",
+        "8d-actor-entity-typing",
+        "8d-temporal-normalization",
+        "8d-relationship-normalization",
+        "8d-d2-event-extraction",
+        "8d-d4-root-cause-extraction",
+        "8d-d5-action-extraction",
+    )
+
+
+def test_select_codex_skill_adds_d2_d4_d5_modules_for_full_document_chunk() -> None:
+    selection = select_codex_skill(_build_full_document_ctx())
 
     assert selection.prompt_modules == (
         "8d-report-extraction-core",
@@ -499,6 +573,51 @@ async def test_fallback_llm_client_uses_secondary_provider() -> None:
     assert usage.metadata["primary_provider"] == "codex"
     assert usage.metadata["fallback_provider"] == "mock"
     assert "primary unavailable" in usage.metadata["fallback_trigger"]
+
+
+@pytest.mark.asyncio
+async def test_fallback_llm_client_falls_back_when_primary_times_out() -> None:
+    class SlowPrimaryClient:
+        async def complete_json(self, **kwargs):
+            await asyncio.sleep(0.05)
+            raise AssertionError("should timeout before returning")
+
+    class SuccessClient:
+        async def complete_json(self, **kwargs):
+            return (
+                ExtractionResult(
+                    report=EightDReport(
+                        business_key="FS-001",
+                        report_no="FS-001",
+                    )
+                ),
+                LLMUsage(
+                    prompt_tokens=1,
+                    completion_tokens=2,
+                    total_tokens=3,
+                    model="minimax",
+                    metadata={"provider": "minimax", "executor_type": "minimax_llm"},
+                ),
+            )
+
+    client = FallbackLLMClient(
+        primary=SlowPrimaryClient(),
+        fallback=SuccessClient(),
+        primary_provider="codex",
+        fallback_provider="minimax",
+        primary_timeout_seconds=0.01,
+    )
+
+    result, usage = await client.complete_json(
+        system_prompt="sys",
+        user_prompt="user",
+        response_model=ExtractionResult,
+    )
+
+    assert result.report is not None
+    assert usage.metadata["primary_provider"] == "codex"
+    assert usage.metadata["fallback_provider"] == "minimax"
+    assert "timed out" in usage.metadata["fallback_trigger"]
 
 
 @pytest.mark.asyncio

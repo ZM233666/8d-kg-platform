@@ -5,10 +5,12 @@ from app.pipeline.relationship_builder import (
     filter_supported_relationships,
     infer_relationships,
     materialize_organizations_from_action_owners,
+    materialize_persons_from_actor_fields,
     merge_relationships,
     normalize_action_responsible_org_relationships,
     normalize_event_severity,
     normalize_organizations,
+    normalize_person_relationships,
     normalize_relationship_endpoint_keys,
     normalize_relationship_item,
     normalize_relationships_raw,
@@ -24,6 +26,7 @@ from app.schemas.entity import (
     FailureMode,
     Organization,
     PartSerial,
+    Person,
     ProductEvent,
     ProductInstance,
 )
@@ -367,8 +370,58 @@ def test_normalize_organizations_canonicalizes_known_alias(
     assert er.organizations[0].org_type == "公司"
 
 
+def test_normalize_organizations_dedupes_canonical_alias_entries(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.pipeline.relationship_builder.load_lexicon",
+        lambda: {
+            "organization_aliases": [
+                {
+                    "canonical_code": "ORG-KB-SUZHOU",
+                    "canonical_name": "Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd.",
+                    "org_type": "公司",
+                    "aliases": ["克诺尔苏州", "KB苏州"],
+                }
+            ]
+        },
+    )
+
+    er = ExtractionResult(
+        organizations=[
+            Organization(
+                business_key="克诺尔苏州",
+                org_code="克诺尔苏州",
+                org_name="克诺尔苏州",
+                org_type="内部部门",
+                supporting_chunks=["R1#纠正措施#1"],
+            ),
+            Organization(
+                business_key="ORG-KB-SUZHOU",
+                org_code="ORG-KB-SUZHOU",
+                org_name="Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd.",
+                org_type="公司",
+                supporting_chunks=["R1#封面#0"],
+            ),
+        ]
+    )
+
+    alias_map = normalize_organizations(er)
+
+    assert len(er.organizations) == 1
+    assert er.organizations[0].business_key == "ORG-KB-SUZHOU"
+    assert (
+        er.organizations[0].org_name == "Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd."
+    )
+    assert er.organizations[0].org_type == "公司"
+    assert er.organizations[0].supporting_chunks == ["R1#纠正措施#1", "R1#封面#0"]
+    assert alias_map["克诺尔苏州"] == "ORG-KB-SUZHOU"
+    assert alias_map["orgkbsuzhou"] == "ORG-KB-SUZHOU"
+
+
 def test_materialize_organizations_from_action_owners_adds_supplier_org() -> None:
     er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
         actions=[
             ActionItem(
                 business_key="A1",
@@ -378,14 +431,56 @@ def test_materialize_organizations_from_action_owners_adds_supplier_org() -> Non
                 owner_name="供应商",
                 supporting_chunks=["R1#纠正措施#0"],
             )
-        ]
+        ],
     )
 
     materialize_organizations_from_action_owners(er)
 
     assert [(org.business_key, org.org_name, org.org_type) for org in er.organizations] == [
-        ("供应商", "供应商", "供应商")
+        ("ORG-LOCAL::R1::供应商", "供应商", "供应商")
     ]
+
+
+def test_normalize_organizations_scopes_generic_supplier_locally() -> None:
+    er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
+        organizations=[
+            Organization(
+                business_key="供应商",
+                org_code="供应商",
+                org_name="供应商",
+                org_type="供应商",
+                supporting_chunks=["R1#纠正措施#0"],
+            )
+        ],
+    )
+
+    alias_map = normalize_organizations(er)
+
+    assert [(org.business_key, org.org_name, org.org_type) for org in er.organizations] == [
+        ("ORG-LOCAL::R1::供应商", "供应商", "供应商")
+    ]
+    assert alias_map["供应商"] == "ORG-LOCAL::R1::供应商"
+
+
+def test_normalize_organizations_scopes_generic_supplier_locally_without_org_name() -> None:
+    er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
+        organizations=[
+            Organization(
+                business_key="供应商",
+                org_code="供应商",
+                org_name=None,
+                org_type="供应商",
+                supporting_chunks=["R1#纠正措施#0"],
+            )
+        ],
+    )
+
+    alias_map = normalize_organizations(er)
+
+    assert er.organizations[0].business_key == "ORG-LOCAL::R1::供应商"
+    assert alias_map["供应商"] == "ORG-LOCAL::R1::供应商"
 
 
 def test_materialize_organizations_from_action_owners_canonicalizes_known_alias(
@@ -427,6 +522,176 @@ def test_materialize_organizations_from_action_owners_canonicalizes_known_alias(
             "公司",
         )
     ]
+
+
+def test_materialize_persons_from_actor_fields_adds_person_for_report_owner() -> None:
+    er = ExtractionResult(
+        report=EightDReport(
+            business_key="R1",
+            report_no="R1",
+            issue_title="t",
+            owner_name="王经理",
+            supporting_chunks=["R1#纠正措施#0"],
+        ),
+        chunks=[
+            Chunk(
+                chunk_id="R1#纠正措施#0",
+                report_id="R1",
+                section_path=["纠正措施"],
+                para_idx=0,
+                chunk_role="action",
+                text="负责人：王经理，负责跟踪整改关闭。",
+            )
+        ],
+    )
+
+    materialize_persons_from_actor_fields(er)
+
+    assert [(person.business_key, person.person_name) for person in er.persons] == [
+        ("PER-LOCAL::R1::王经理", "王经理")
+    ]
+
+
+def test_materialize_persons_from_actor_fields_skips_org_like_reporter_name() -> None:
+    er = ExtractionResult(
+        report=EightDReport(business_key="R1", report_no="R1", issue_title="t"),
+        event=ProductEvent(
+            business_key="E1",
+            event_id="E1",
+            reporter_name="克诺尔苏州",
+            supporting_chunks=["R1#问题描述#0"],
+        ),
+        chunks=[
+            Chunk(
+                chunk_id="R1#问题描述#0",
+                report_id="R1",
+                section_path=["问题描述"],
+                para_idx=0,
+                chunk_role="evidence",
+                text="上报人：克诺尔苏州，反馈二级调节器压力超差。",
+            )
+        ],
+    )
+
+    materialize_persons_from_actor_fields(er)
+
+    assert er.persons == []
+
+
+def test_normalize_person_relationships_adds_event_and_action_person_edges() -> None:
+    er = ExtractionResult(
+        report=EightDReport(
+            business_key="R1",
+            report_no="R1",
+            issue_title="t",
+            owner_name="王经理",
+            supporting_chunks=["R1#报告信息#0"],
+        ),
+        event=ProductEvent(
+            business_key="E1",
+            event_id="E1",
+            reporter_name="吴重人",
+            supporting_chunks=["R1#问题描述#0"],
+        ),
+        actions=[
+            ActionItem(
+                business_key="A1",
+                action_id="A1",
+                title="更换故障阀门",
+                action_type="纠正D5",
+                owner_name="李工",
+                supporting_chunks=["R1#纠正措施#0"],
+            )
+        ],
+        persons=[
+            Person(
+                business_key="PER-LOCAL::R1::吴重人",
+                person_id="PER-LOCAL::R1::吴重人",
+                person_name="吴重人",
+                supporting_chunks=["R1#问题描述#0"],
+            ),
+            Person(
+                business_key="PER-LOCAL::R1::王经理",
+                person_id="PER-LOCAL::R1::王经理",
+                person_name="王经理",
+                supporting_chunks=["R1#报告信息#0"],
+            ),
+            Person(
+                business_key="PER-LOCAL::R1::李工",
+                person_id="PER-LOCAL::R1::李工",
+                person_name="李工",
+                supporting_chunks=["R1#纠正措施#0"],
+            ),
+        ],
+    )
+
+    normalize_person_relationships(er)
+
+    assert {
+        (rel.from_label, rel.from_key, rel.rel_type, rel.to_label, rel.to_key)
+        for rel in er.relationships
+    } == {
+        ("ProductEvent", "E1", "REPORTED_BY_PERSON", "Person", "PER-LOCAL::R1::吴重人"),
+        ("EightDReport", "R1", "OWNED_BY_PERSON", "Person", "PER-LOCAL::R1::王经理"),
+        ("ActionItem", "A1", "OWNED_BY_PERSON", "Person", "PER-LOCAL::R1::李工"),
+    }
+
+
+def test_enrich_extraction_result_materializes_person_without_affecting_temporal_fields() -> None:
+    er = ExtractionResult(
+        report=EightDReport(
+            business_key="R1",
+            report_no="R1",
+            issue_title="t",
+            owner_name="王经理",
+            closed_at=None,
+            supporting_chunks=["R1#报告信息#0"],
+        ),
+        actions=[
+            ActionItem(
+                business_key="A1",
+                action_id="A1",
+                title="更换故障阀门",
+                action_type="纠正D5",
+                owner_name="李工",
+                completed_at=None,
+                supporting_chunks=["R1#纠正措施#0"],
+            )
+        ],
+        chunks=[
+            Chunk(
+                chunk_id="R1#报告信息#0",
+                report_id="R1",
+                section_path=["报告信息"],
+                para_idx=0,
+                chunk_role="unknown",
+                text="负责人：王经理",
+            ),
+            Chunk(
+                chunk_id="R1#纠正措施#0",
+                report_id="R1",
+                section_path=["纠正措施"],
+                para_idx=0,
+                chunk_role="action",
+                text="责任人：李工，负责更换故障阀门。",
+            ),
+        ],
+    )
+
+    enrich_extraction_result(er, report_id_hint="R1")
+
+    assert {person.person_name for person in er.persons} == {"王经理", "李工"}
+    assert {
+        (rel.from_label, rel.rel_type, rel.to_label)
+        for rel in er.relationships
+        if rel.rel_type == "OWNED_BY_PERSON"
+    } == {
+        ("EightDReport", "OWNED_BY_PERSON", "Person"),
+        ("ActionItem", "OWNED_BY_PERSON", "Person"),
+    }
+    assert er.report is not None
+    assert er.report.closed_at is None
+    assert er.actions[0].completed_at is None
 
 
 def test_normalize_report_owner_clears_cover_company_without_owner_signal() -> None:
@@ -625,6 +890,62 @@ def test_normalize_action_responsible_org_relationships_matches_canonical_org_al
 
     normalize_action_responsible_org_relationships(er)
 
+    assert {
+        (rel.from_label, rel.from_key, rel.rel_type, rel.to_label, rel.to_key)
+        for rel in er.relationships
+    } == {
+        ("ActionItem", "A3", "RESPONSIBLE_ORG", "Organization", "ORG-KB-SUZHOU"),
+    }
+
+
+def test_normalize_action_responsible_org_relationships_survives_canonical_duplicates(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.pipeline.relationship_builder.load_lexicon",
+        lambda: {
+            "organization_aliases": [
+                {
+                    "canonical_code": "ORG-KB-SUZHOU",
+                    "canonical_name": "Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd.",
+                    "org_type": "公司",
+                    "aliases": ["克诺尔苏州", "KB苏州"],
+                }
+            ]
+        },
+    )
+
+    er = ExtractionResult(
+        actions=[
+            ActionItem(
+                business_key="A3",
+                action_id="A3",
+                title="由克诺尔苏州更新来料检验标准",
+                action_type="纠正D5",
+                owner_name="克诺尔苏州",
+                supporting_chunks=["R1#纠正措施#1"],
+            )
+        ],
+        organizations=[
+            Organization(
+                business_key="克诺尔苏州",
+                org_code="克诺尔苏州",
+                org_name="克诺尔苏州",
+                org_type="内部部门",
+            ),
+            Organization(
+                business_key="ORG-KB-SUZHOU",
+                org_code="ORG-KB-SUZHOU",
+                org_name="Knorr-Bremse Systems for Rail Vehicles (Suzhou) Co., Ltd.",
+                org_type="公司",
+            ),
+        ],
+    )
+
+    normalize_organizations(er)
+    normalize_action_responsible_org_relationships(er)
+
+    assert len(er.organizations) == 1
     assert {
         (rel.from_label, rel.from_key, rel.rel_type, rel.to_label, rel.to_key)
         for rel in er.relationships

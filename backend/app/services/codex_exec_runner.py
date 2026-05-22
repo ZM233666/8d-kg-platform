@@ -89,7 +89,7 @@ class CodexExecRunner:
                 schema=req.response_schema,
             )
             prompt = self._build_prompt(req)
-            cmd = self._build_command(artifacts, prompt)
+            cmd = self._build_command(artifacts)
 
             logger.info(
                 "codex_exec.start",
@@ -99,7 +99,7 @@ class CodexExecRunner:
                 route_name=req.request_context.get("route_name"),
             )
 
-            stdout, stderr, returncode = await self._run_command(cmd)
+            stdout, stderr, returncode = await self._run_command(cmd, prompt)
             if returncode != 0:
                 raise CodexExecError(
                     "Codex CLI 执行失败:"
@@ -153,7 +153,7 @@ class CodexExecRunner:
         )
         return _CodexExecArtifacts(schema_path=schema_path, output_path=output_path)
 
-    def _build_command(self, artifacts: _CodexExecArtifacts, prompt: str) -> list[str]:
+    def _build_command(self, artifacts: _CodexExecArtifacts) -> list[str]:
         cmd = [
             self.cli_path,
             "exec",
@@ -172,7 +172,7 @@ class CodexExecRunner:
         ]
         if self.model:
             cmd.extend(["-m", self.model])
-        cmd.append(prompt)
+        cmd.append("-")
         return cmd
 
     def _build_prompt(self, req: CodexExtractorRequest) -> str:
@@ -192,16 +192,17 @@ class CodexExecRunner:
             f"{req.user_prompt}\n"
         )
 
-    async def _run_command(self, cmd: list[str]) -> tuple[str, str, int]:
+    async def _run_command(self, cmd: list[str], prompt: str) -> tuple[str, str, int]:
         process = await asyncio.create_subprocess_exec(
             *cmd,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=self.workdir,
         )
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                process.communicate(),
+                process.communicate(prompt.encode("utf-8")),
                 timeout=self.timeout_seconds,
             )
         except TimeoutError as exc:

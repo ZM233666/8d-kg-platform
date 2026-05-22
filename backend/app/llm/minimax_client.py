@@ -1,12 +1,4 @@
-"""MiniMax LLM 客户端（OpenAI 兼容协议）。
-
-通过 OpenAI 兼容 chat/completions endpoint 调用 MiniMax 模型。
-- 强制 JSON mode（response_format: json_object）
-- 把 response_model 的字段约束写进 system prompt 引导
-- 指数退避重试（429/5xx，最多 N 次）
-- 异常归一为 LLMError
-- 容错预处理：confidence 字符串→float，is_* 字符串→bool
-"""
+"""MiniMax LLM 客户端（OpenAI 兼容协议）。"""
 
 from __future__ import annotations
 
@@ -28,10 +20,7 @@ logger = structlog.get_logger(__name__)
 
 
 class MinimaxClient:
-    """MiniMax OpenAI 兼容客户端。
-
-    实现 LLMClient 协议（Protocol，不需要继承）。
-    """
+    """MiniMax OpenAI-compatible 客户端。"""
 
     def __init__(
         self,
@@ -41,10 +30,10 @@ class MinimaxClient:
         model: str,
         timeout_seconds: int = 60,
         max_retries: int = 3,
-    ):
+    ) -> None:
         if not api_key or api_key.startswith("sk-placeholder"):
             raise LLMError(
-                "MinimaxClient: api_key 未配置或为占位符，请在 .env 中设置 LLM_API_KEY"
+                "MinimaxClient: api_key 未配置或为占位符，请在 .env 中设置 MINIMAX_API_KEY"
             )
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
@@ -67,7 +56,6 @@ class MinimaxClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        # MiniMax M 系列不支持 response_format，靠 prompt 引导 JSON 输出
         payload = {
             "model": self.model,
             "messages": [
@@ -88,7 +76,6 @@ class MinimaxClient:
 
         body = await self._post_with_retry(url, headers, payload)
 
-        # 取出 content
         try:
             content = body["choices"][0]["message"]["content"]
             usage_raw = body.get("usage", {})
@@ -97,12 +84,9 @@ class MinimaxClient:
                 f"MiniMax 响应结构异常：缺少 choices[0].message.content；body={body}"
             ) from e
 
-        # 剥可能的 <think>...</think> 标签（M 系列推理模型遗留行为）
         content = _strip_think_tags(content)
-        # 剥可能的 ```json ... ``` markdown code fence
         content = _strip_code_fence(content)
 
-        # 解析 JSON
         try:
             data = json.loads(content)
         except json.JSONDecodeError as e:
@@ -111,18 +95,15 @@ class MinimaxClient:
                 f"MiniMax 返回非合法 JSON: {e}; content preview: {preview!r}"
             ) from e
 
-        # 容错预处理
+        data = _drop_null_fields(data)
         data = _coerce_types(data)
         data = normalize_relationships_raw(data)
 
-        # 用 Pydantic 校验
         try:
             adapter = TypeAdapter(response_model)
             obj = adapter.validate_python(data)
         except ValidationError as e:
-            raise LLMError(
-                f"MiniMax 响应不符合 {response_model.__name__} schema: {e}"
-            ) from e
+            raise LLMError(f"MiniMax 响应不符合 {response_model.__name__} schema: {e}") from e
 
         usage = LLMUsage(
             prompt_tokens=int(usage_raw.get("prompt_tokens", 0)),
@@ -147,35 +128,34 @@ class MinimaxClient:
         return obj, usage
 
     async def _post_with_retry(
-        self, url: str, headers: dict, payload: dict
-    ) -> dict:
-        """指数退避重试 POST。429/5xx 重试，4xx 其他直接 fail。"""
+        self,
+        url: str,
+        headers: dict[str, str],
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """指数退避重试 POST。429/5xx 重试，其他 4xx 直接失败。"""
         last_err: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
                 async with httpx.AsyncClient(timeout=self.timeout_seconds) as cli:
-                    r = await cli.post(url, headers=headers, json=payload)
-                if r.status_code == 200:
-                    return r.json()
-                # 429 / 5xx：可重试
-                if r.status_code == 429 or r.status_code >= 500:
+                    response = await cli.post(url, headers=headers, json=payload)
+                if response.status_code == 200:
+                    return response.json()
+                if response.status_code == 429 or response.status_code >= 500:
                     wait = 2 ** (attempt - 1)
                     logger.warning(
                         "minimax_retry",
                         attempt=attempt,
-                        status=r.status_code,
+                        status=response.status_code,
                         wait_seconds=wait,
-                        body_preview=r.text[:300],
+                        body_preview=response.text[:300],
                     )
-                    last_err = LLMError(
-                        f"MiniMax HTTP {r.status_code}: {r.text[:300]}"
-                    )
+                    last_err = LLMError(f"MiniMax HTTP {response.status_code}: {response.text[:300]}")
                     if attempt < self.max_retries:
                         await asyncio.sleep(wait)
                     continue
-                # 4xx 其他：直接抛
                 raise LLMError(
-                    f"MiniMax HTTP {r.status_code} (不可重试): {r.text[:500]}"
+                    f"MiniMax HTTP {response.status_code} (不可重试): {response.text[:500]}"
                 )
             except httpx.RequestError as e:
                 wait = 2 ** (attempt - 1)
@@ -188,17 +168,13 @@ class MinimaxClient:
                 last_err = LLMError(f"MiniMax 网络错误: {e}")
                 if attempt < self.max_retries:
                     await asyncio.sleep(wait)
-        # 重试用尽
         raise last_err or LLMError("MiniMax 重试用尽（未知原因）")
 
-
-# ---------- helpers ----------
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 def _strip_think_tags(content: str) -> str:
-    """去掉 M 系列推理模型可能输出的 <think>...</think> 块。"""
     return _THINK_RE.sub("", content).strip()
 
 
@@ -206,38 +182,45 @@ _FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL)
 
 
 def _strip_code_fence(content: str) -> str:
-    """去掉 ```json ... ``` markdown code fence。"""
-    m = _FENCE_RE.match(content.strip())
-    return m.group(1).strip() if m else content
+    matched = _FENCE_RE.match(content.strip())
+    return matched.group(1).strip() if matched else content
 
 
 def _coerce_types(data: Any) -> Any:
-    """递归把字符串形态的数字/布尔字段转回原生类型。
-
-    覆盖范围：
-      - 字段名以 'confidence' / '_score' / '_probability' 结尾 → float
-      - 字段名以 'is_' 开头 → bool
-    其他字段不动，避免误伤。
-    """
+    """递归把字符串形态的数字/布尔字段转回原生类型。"""
     if isinstance(data, dict):
-        out = {}
-        for k, v in data.items():
-            if isinstance(v, str):
-                if k == "confidence" or k.endswith("_score") or k.endswith("_probability"):
+        out: dict[str, Any] = {}
+        for key, value in data.items():
+            if isinstance(value, str):
+                if key == "confidence" or key.endswith("_score") or key.endswith("_probability"):
                     try:
-                        out[k] = float(v)
+                        out[key] = float(value)
                         continue
                     except ValueError:
                         pass
-                if k.startswith("is_"):
-                    if v.lower() in ("true", "1", "yes"):
-                        out[k] = True
+                if key.startswith("is_"):
+                    if value.lower() in ("true", "1", "yes"):
+                        out[key] = True
                         continue
-                    if v.lower() in ("false", "0", "no"):
-                        out[k] = False
+                    if value.lower() in ("false", "0", "no"):
+                        out[key] = False
                         continue
-            out[k] = _coerce_types(v)
+            out[key] = _coerce_types(value)
         return out
     if isinstance(data, list):
-        return [_coerce_types(x) for x in data]
+        return [_coerce_types(item) for item in data]
+    return data
+
+
+def _drop_null_fields(data: Any) -> Any:
+    """递归去掉 null 字段，让 Pydantic 默认值接管。"""
+    if isinstance(data, dict):
+        out: dict[str, Any] = {}
+        for key, value in data.items():
+            if value is None:
+                continue
+            out[key] = _drop_null_fields(value)
+        return out
+    if isinstance(data, list):
+        return [_drop_null_fields(item) for item in data]
     return data

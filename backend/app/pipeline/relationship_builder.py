@@ -6,7 +6,7 @@ import re
 
 from app.graph.client import ALLOWED_LABELS, ALLOWED_REL_TYPES
 from app.lexicon import load_lexicon
-from app.schemas.entity import Organization
+from app.schemas.entity import Organization, Person
 from app.schemas.extraction import ExtractionResult, RelationTriple
 
 _INVALID_REPORT_KEYS = frozenset({"", "UNKNOWN", "unknown", "N/A", "null", "None"})
@@ -78,6 +78,16 @@ _REL_ENDPOINT_RULES: dict[str, frozenset[tuple[str, str]]] = {
             ("ActionItem", "Organization"),
         }
     ),
+    "INVOLVES_PERSON": frozenset({("EightDReport", "Person")}),
+    "AUTHORED_BY_PERSON": frozenset({("EightDReport", "Person")}),
+    "REVIEWED_BY_PERSON": frozenset({("EightDReport", "Person")}),
+    "REPORTED_BY_PERSON": frozenset({("ProductEvent", "Person")}),
+    "OWNED_BY_PERSON": frozenset(
+        {
+            ("EightDReport", "Person"),
+            ("ActionItem", "Person"),
+        }
+    ),
     "TARGET_SERIAL": frozenset({("ActionItem", "PartSerial")}),
     "TARGET_PRODUCT": frozenset({("ActionItem", "ProductInstance")}),
     "INSTALLED_ON": frozenset({("PartSerial", "ProductInstance")}),
@@ -97,10 +107,30 @@ _COMPANY_MARKERS = (
     "gmbh",
 )
 _DEPARTMENT_MARKERS = ("部门", "项目组", "小组", "中心", "team", "department", "quality", "制造部")
+_GENERIC_ORG_NAMES = frozenset(
+    {
+        "供应商",
+        "客户",
+        "部门",
+        "项目组",
+        "小组",
+        "团队",
+        "内部部门",
+        "supplier",
+        "customer",
+        "department",
+        "team",
+    }
+)
 _OWNER_SIGNAL_RE = re.compile(
     r"(负责人|责任人|owner|报告人|负责人姓名|责任部门|责任单位)", re.IGNORECASE
 )
 _SEVERITY_SIGNAL_RE = re.compile(r"(等级|级别|severity|定义为|分类为|风险等级)", re.IGNORECASE)
+_PERSON_TITLE_RE = re.compile(r"(工|经理|主任|总监|总工|班长|老师|工程师)$")
+_PERSON_CONTEXT_SIGNAL_RE = re.compile(
+    r"(负责人|责任人|联系人|报告人|上报人|owner|operator|操作人|责任工程师|责任经理)",
+    re.IGNORECASE,
+)
 
 
 def _is_valid_relation_endpoint(*, rel_type: str, from_label: str, to_label: str) -> bool:
@@ -223,6 +253,9 @@ def _sync_entity_business_keys(
     for org in er.organizations:
         if org.org_code:
             org.business_key = org.org_code
+    for person in er.persons:
+        if person.person_id:
+            person.business_key = person.person_id
 
 
 def _action_rel_type(action_type: str | None) -> str:
@@ -308,6 +341,9 @@ def _canonicalize_organization(org) -> None:
 def normalize_organizations(er: ExtractionResult) -> dict[str, str]:
     """对 Organization 做保守归一, 减少公司或部门误判."""
     alias_map: dict[str, str] = {}
+    deduped: dict[str, Organization] = {}
+    ordered_keys: list[str] = []
+
     for org in er.organizations:
         original_values = {
             candidate
@@ -332,12 +368,93 @@ def normalize_organizations(er: ExtractionResult) -> dict[str, str]:
                 org.org_type = "部门"
         elif _looks_like_company_name(org_name) and org_type in {"", "内部部门", "部门", "项目组"}:
             org.org_type = "公司"
+
+        if _should_scope_org_locally(org):
+            local_key = _build_local_org_business_key(er, org.org_name or org.business_key)
+            org.business_key = local_key
+            org.org_code = local_key
+            canonical_key = local_key
+
         for value in original_values:
             alias_map[value] = canonical_key
         alias_map[_normalize_match_text(org.business_key)] = canonical_key
         alias_map[_normalize_match_text(org.org_code)] = canonical_key
         alias_map[_normalize_match_text(org.org_name)] = canonical_key
+
+        existing = deduped.get(canonical_key)
+        if existing is None:
+            deduped[canonical_key] = org
+            ordered_keys.append(canonical_key)
+            continue
+        _merge_organization(existing, org)
+
+    er.organizations = [deduped[key] for key in ordered_keys]
     return alias_map
+
+
+def _merge_organization(target: Organization, incoming: Organization) -> None:
+    """按 canonical business_key 合并重复 Organization。"""
+    target.supporting_chunks = _merge_unique_text_list(
+        target.supporting_chunks + incoming.supporting_chunks
+    )
+    target.source_section = _merge_unique_text_list(target.source_section + incoming.source_section)
+
+    for attr in ("org_code", "org_name", "org_type", "source_doc_id", "owner_id"):
+        current = getattr(target, attr)
+        candidate = getattr(incoming, attr)
+        preferred = _prefer_text_value(current, candidate)
+        if preferred is not None:
+            setattr(target, attr, preferred)
+
+    for attr in ("description", "summary"):
+        current = getattr(target, attr)
+        candidate = getattr(incoming, attr)
+        preferred = _prefer_richer_text_value(current, candidate)
+        if preferred is not None:
+            setattr(target, attr, preferred)
+
+    target.confidence = max(target.confidence, incoming.confidence)
+    if target.created_at is None:
+        target.created_at = incoming.created_at
+    if target.updated_at is None or (
+        incoming.updated_at is not None and incoming.updated_at > target.updated_at
+    ):
+        target.updated_at = incoming.updated_at
+
+
+def _merge_unique_text_list(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    merged: list[str] = []
+    for value in values:
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        merged.append(value)
+    return merged
+
+
+def _prefer_text_value(current: str | None, candidate: str | None) -> str | None:
+    current_text = (current or "").strip()
+    candidate_text = (candidate or "").strip()
+    if not current_text:
+        return candidate_text or current
+    if not candidate_text:
+        return current
+    if len(candidate_text) > len(current_text):
+        return candidate_text
+    return current
+
+
+def _prefer_richer_text_value(current: str | None, candidate: str | None) -> str | None:
+    current_text = (current or "").strip()
+    candidate_text = (candidate or "").strip()
+    if not current_text:
+        return candidate_text or current
+    if not candidate_text:
+        return current
+    if len(candidate_text) > len(current_text):
+        return candidate_text
+    return current
 
 
 def _supporting_chunk_text(er: ExtractionResult, chunk_ids: list[str]) -> str:
@@ -355,6 +472,88 @@ def _looks_like_orgish_name(name: str | None) -> bool:
         or _looks_like_department_name(name)
         or "供应商" in name
         or "客户" in name
+    )
+
+
+def _looks_like_generic_org_name(name: str | None) -> bool:
+    if not name:
+        return False
+    stripped = name.strip()
+    lowered = stripped.lower()
+    if stripped in _GENERIC_ORG_NAMES or lowered in _GENERIC_ORG_NAMES:
+        return True
+    return (
+        _looks_like_department_name(stripped)
+        and len(stripped) <= 4
+        and not _looks_like_company_name(stripped)
+    )
+
+
+def _should_scope_org_locally(org: Organization) -> bool:
+    name = (org.org_name or "").strip() or (org.org_code or "").strip() or org.business_key
+    if not name:
+        return False
+    if _find_canonical_org_entry(org.business_key) or _find_canonical_org_entry(org.org_name):
+        return False
+    if _looks_like_company_name(name):
+        return False
+    return _looks_like_generic_org_name(name)
+
+
+def _build_local_org_business_key(er: ExtractionResult, name: str) -> str:
+    report_scope = ""
+    if er.report and er.report.business_key:
+        report_scope = er.report.business_key
+    if not report_scope:
+        for org in er.organizations:
+            if org.supporting_chunks:
+                report_scope = org.supporting_chunks[0].split("#", 1)[0]
+                break
+    if not report_scope:
+        report_scope = "UNKNOWN"
+    normalized_name = _normalize_match_text(name) or name.strip()
+    return f"ORG-LOCAL::{report_scope}::{normalized_name}"
+
+
+def _build_local_person_business_key(er: ExtractionResult, name: str) -> str:
+    report_scope = ""
+    if er.report and er.report.business_key:
+        report_scope = er.report.business_key
+    if not report_scope:
+        for chunk in er.chunks:
+            if chunk.report_id:
+                report_scope = chunk.report_id
+                break
+    if not report_scope:
+        report_scope = "UNKNOWN"
+    normalized_name = _normalize_match_text(name) or name.strip()
+    return f"PER-LOCAL::{report_scope}::{normalized_name}"
+
+
+def _looks_like_person_name(name: str | None, supporting_text: str = "") -> bool:
+    if not name:
+        return False
+    stripped = name.strip()
+    if not stripped or _looks_like_orgish_name(stripped):
+        return False
+    if _find_canonical_org_entry(stripped):
+        return False
+
+    cjk_only = re.fullmatch(r"[\u4e00-\u9fff]{2,4}", stripped)
+    titled_cjk = re.fullmatch(r"[\u4e00-\u9fff]{1,3}(工|经理|主任|总监|总工|班长|老师)", stripped)
+    if cjk_only or titled_cjk:
+        return True
+
+    normalized_text = _normalize_match_text(supporting_text)
+    normalized_name = _normalize_match_text(stripped)
+    if not normalized_name:
+        return False
+
+    if _PERSON_TITLE_RE.search(stripped):
+        return True
+
+    return bool(
+        normalized_name in normalized_text and _PERSON_CONTEXT_SIGNAL_RE.search(supporting_text)
     )
 
 
@@ -422,7 +621,11 @@ def materialize_organizations_from_action_owners(er: ExtractionResult) -> None:
             org_name = entry.get("canonical_name") or owner_name
             org_type = entry.get("org_type")
         elif _looks_like_orgish_name(owner_name):
-            business_key = owner_name
+            business_key = (
+                _build_local_org_business_key(er, owner_name)
+                if _looks_like_generic_org_name(owner_name)
+                else owner_name
+            )
             org_name = owner_name
             org_type = "供应商" if "供应商" in owner_name else None
         else:
@@ -442,6 +645,146 @@ def materialize_organizations_from_action_owners(er: ExtractionResult) -> None:
         )
         existing_keys.add(business_key)
         existing_names.add(org_name)
+
+
+def materialize_persons_from_actor_fields(er: ExtractionResult) -> None:
+    """从 reporter / owner 原始字段保守补 Person。"""
+    existing_keys = {person.business_key for person in er.persons}
+    existing_names = {(person.person_name or "").strip() for person in er.persons}
+
+    candidates: list[tuple[str, list[str]]] = []
+    if er.event and er.event.reporter_name:
+        candidates.append((er.event.reporter_name, list(er.event.supporting_chunks)))
+    if er.report and er.report.owner_name:
+        candidates.append((er.report.owner_name, list(er.report.supporting_chunks)))
+    for action in er.actions:
+        if action.owner_name:
+            candidates.append((action.owner_name, list(action.supporting_chunks)))
+
+    for raw_name, supporting_chunks in candidates:
+        person_name = raw_name.strip()
+        if not person_name:
+            continue
+        supporting_text = _supporting_chunk_text(er, supporting_chunks)
+        if not _looks_like_person_name(person_name, supporting_text):
+            continue
+
+        business_key = _build_local_person_business_key(er, person_name)
+        if business_key in existing_keys or person_name in existing_names:
+            continue
+
+        er.persons.append(
+            Person(
+                business_key=business_key,
+                person_id=business_key,
+                person_name=person_name,
+                supporting_chunks=supporting_chunks,
+            )
+        )
+        existing_keys.add(business_key)
+        existing_names.add(person_name)
+
+
+def normalize_person_relationships(er: ExtractionResult) -> None:
+    """补齐并收紧 ProductEvent/EightDReport/ActionItem 到 Person 的关系。"""
+    person_by_key = {person.business_key: person for person in er.persons}
+    person_name_index = {
+        _normalize_match_text(person.person_name): person
+        for person in er.persons
+        if person.person_name and _normalize_match_text(person.person_name)
+    }
+
+    retained: list[RelationTriple] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+    for relation in er.relationships:
+        if relation.rel_type not in {"REPORTED_BY_PERSON", "OWNED_BY_PERSON"}:
+            retained.append(relation)
+            seen.add(_rel_key(relation))
+            continue
+
+        person = person_by_key.get(relation.to_key)
+        if not person or relation.to_label != "Person":
+            continue
+
+        if relation.rel_type == "REPORTED_BY_PERSON":
+            if er.event is None or relation.from_label != "ProductEvent":
+                continue
+            reporter_name = _normalize_match_text(er.event.reporter_name)
+            person_name = _normalize_match_text(person.person_name)
+            if reporter_name and reporter_name == person_name:
+                retained.append(relation)
+                seen.add(_rel_key(relation))
+            continue
+
+        if relation.from_label == "EightDReport" and er.report is not None:
+            owner_name = _normalize_match_text(er.report.owner_name)
+            person_name = _normalize_match_text(person.person_name)
+            if owner_name and owner_name == person_name:
+                retained.append(relation)
+                seen.add(_rel_key(relation))
+            continue
+
+        if relation.from_label == "ActionItem":
+            action = next(
+                (item for item in er.actions if item.business_key == relation.from_key), None
+            )
+            if not action:
+                continue
+            owner_name = _normalize_match_text(action.owner_name)
+            person_name = _normalize_match_text(person.person_name)
+            if owner_name and owner_name == person_name:
+                retained.append(relation)
+                seen.add(_rel_key(relation))
+
+    if er.event and er.event.reporter_name:
+        person = person_name_index.get(_normalize_match_text(er.event.reporter_name))
+        if person:
+            relation = RelationTriple(
+                from_label="ProductEvent",
+                from_key=er.event.business_key,
+                to_label="Person",
+                to_key=person.business_key,
+                rel_type="REPORTED_BY_PERSON",
+            )
+            key = _rel_key(relation)
+            if key not in seen:
+                retained.append(relation)
+                seen.add(key)
+
+    if er.report and er.report.owner_name:
+        person = person_name_index.get(_normalize_match_text(er.report.owner_name))
+        if person:
+            relation = RelationTriple(
+                from_label="EightDReport",
+                from_key=er.report.business_key,
+                to_label="Person",
+                to_key=person.business_key,
+                rel_type="OWNED_BY_PERSON",
+            )
+            key = _rel_key(relation)
+            if key not in seen:
+                retained.append(relation)
+                seen.add(key)
+
+    for action in er.actions:
+        if not action.owner_name:
+            continue
+        person = person_name_index.get(_normalize_match_text(action.owner_name))
+        if not person:
+            continue
+        relation = RelationTriple(
+            from_label="ActionItem",
+            from_key=action.business_key,
+            to_label="Person",
+            to_key=person.business_key,
+            rel_type="OWNED_BY_PERSON",
+        )
+        key = _rel_key(relation)
+        if key not in seen:
+            retained.append(relation)
+            seen.add(key)
+
+    er.relationships = retained
 
 
 def normalize_report_owner(er: ExtractionResult) -> None:
@@ -777,12 +1120,14 @@ def enrich_extraction_result(
 ) -> ExtractionResult:
     """同步 business_key, 合并推断关系, 保证入图时边不缺失."""
     _sync_entity_business_keys(er, report_id_hint=report_id_hint)
+    materialize_persons_from_actor_fields(er)
     materialize_organizations_from_action_owners(er)
     org_alias_map = normalize_organizations(er)
     normalize_report_owner(er)
     normalize_event_severity(er)
     normalize_relationship_endpoint_keys(er, org_alias_map)
     er.relationships = filter_supported_relationships(er.relationships)
+    normalize_person_relationships(er)
     normalize_report_responsible_org_relationships(er)
     normalize_action_responsible_org_relationships(er)
     inferred = infer_relationships(er)

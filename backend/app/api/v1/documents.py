@@ -20,9 +20,9 @@ list_router = APIRouter(prefix="", tags=["documents-query"])
 
 SYSTEM_USER_UUID = UUID("00000000-0000-0000-0000-000000000000")
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-ALLOWED_MIME = {
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
-    "application/msword",  # 浏览器对 .doc 的 MIME，上传后按内容校验
+DETECTED_MIME_BY_FMT = {
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
 
@@ -37,12 +37,10 @@ async def upload_document(
     if len(data) > MAX_FILE_SIZE:
         raise HTTPException(413, "File too large (max 50MB)")
 
-    if file.content_type not in ALLOWED_MIME:
-        raise HTTPException(415, "Unsupported media type")
-
     fmt = sniff_word_format(data)
     if fmt not in ("docx", "doc"):
         raise HTTPException(415, INVALID_DOCX_MSG)
+    normalized_content_type = DETECTED_MIME_BY_FMT[fmt]
 
     sha256 = hashlib.sha256(data).hexdigest()
 
@@ -60,14 +58,14 @@ async def upload_document(
     document_id = uuid4()
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
     object_key = f"uploads/{today}/{document_id}/{file.filename}"
-    await upload_bytes("kg-documents", object_key, data, file.content_type)
+    await upload_bytes("kg-documents", object_key, data, normalized_content_type)
     minio_url = f"minio://kg-documents/{object_key}"
 
     doc = Document(
         id=document_id,
         file_name=file.filename,
         file_size=len(data),
-        mime_type=file.content_type,
+        mime_type=normalized_content_type,
         sha256=sha256,
         minio_key=minio_url,
         upload_user_id=SYSTEM_USER_UUID,

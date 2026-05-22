@@ -28,7 +28,8 @@ celery_app.conf.update(
     task_time_limit=300,
     task_soft_time_limit=270,
     # broker 调优：减少连接开销
-    broker_connection_retry=False,
+    broker_connection_retry=True,
+    broker_connection_retry_on_startup=True,
     broker_connection_timeout=3,
     broker_pool_limit=1,
 )

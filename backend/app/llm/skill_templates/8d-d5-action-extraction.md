@@ -8,17 +8,17 @@
 
 - `ActionItem`
 - 条件性 `Organization`
+- 条件性 `Person`
 - `EightDReport -> CORRECTIVE_ACTION -> ActionItem`
 - `EightDReport -> PREVENTIVE_ACTION -> ActionItem`
 - `ActionItem -> VERIFIES_CAUSE -> CauseItem`
 - `ActionItem -> TARGET_PRODUCT -> ProductInstance`
 - `ActionItem -> TARGET_SERIAL -> PartSerial`
 - `ActionItem -> RESPONSIBLE_ORG -> Organization`
+- 条件性 `ActionItem -> OWNED_BY_PERSON -> Person`
 
 当前 runtime **暂不直接支持**：
 
-- `Person`
-- `OWNED_BY_PERSON`
 - `TARGET_PART`
 - `RELATED_EVENT`
 - raw 时间辅助字段
@@ -127,12 +127,20 @@
 - 优先保留到 `owner_name`
 - 不要创造 `Person`
 
+如果输入是单个 `full_document` chunk：
+
+- 不要因为封面抬头、联系地址、公司名页眉页脚，就把该组织默认挂到所有 `ActionItem`
+- `RESPONSIBLE_ORG` 必须来自动作句附近、责任描述附近或措施表格中的局部证据
+
 ## owner_name / due_date 规则
 
 ### `owner_name`
 
 - 始终先保留原始字符串
-- 即使内部判断更像组织，也不要强行输出 `Person`
+- 如果明显是个人，且文本支持稳定，可同时输出：
+  - `Person`
+  - `ActionItem -> OWNED_BY_PERSON -> Person`
+- 如果更像组织，继续优先走 `owner_name` + `RESPONSIBLE_ORG`
 
 ### `due_date`
 

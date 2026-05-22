@@ -21,12 +21,10 @@ const { Text } = Typography
 const { Dragger } = Upload
 
 const ALLOWED_TYPES = [
-  'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/msword',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]
+const ALLOWED_EXTENSIONS = ['.doc', '.docx']
 
 const MAX_SIZE = 50 * 1024 * 1024 // 50MB
 
@@ -65,8 +63,14 @@ export const UploadPage: React.FC = () => {
   }
 
   const handleBeforeUpload: UploadProps['beforeUpload'] = (file) => {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      messageApi.error(`${file.name} 格式不支持，仅支持 PDF/Word/Excel`)
+    const lowerName = file.name.toLowerCase()
+    const hasAllowedExtension = ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
+    const hasAllowedMime = file.type === '' || file.type === 'application/octet-stream'
+      ? false
+      : ALLOWED_TYPES.includes(file.type)
+
+    if (!hasAllowedExtension && !hasAllowedMime) {
+      messageApi.error(`${file.name} 格式不支持，仅支持 Word（.doc / .docx）`)
       return false
     }
     if (file.size > MAX_SIZE) {
@@ -98,7 +102,7 @@ export const UploadPage: React.FC = () => {
 
       <Card
         title="上传 8D 报告文档"
-        extra={<Text type="secondary">支持 PDF / Word / Excel，单文件≤50MB</Text>}
+        extra={<Text type="secondary">支持 Word（.doc / .docx），单文件≤50MB</Text>}
         style={{ borderRadius: 8 }}
       >
         {/* 文件上传区域 */}
@@ -108,7 +112,7 @@ export const UploadPage: React.FC = () => {
           customRequest={handleUpload}
           onChange={handleChange}
           beforeUpload={handleBeforeUpload}
-          accept=".pdf,.docx,.doc,.xlsx"
+          accept=".doc,.docx"
           disabled={isUploading}
           style={{ borderRadius: 8 }}
           props={{
@@ -137,7 +141,7 @@ export const UploadPage: React.FC = () => {
             <InboxOutlined style={{ fontSize: 48, color: '#1677ff' }} />
           </p>
           <p className="ant-upload-text">点击或拖拽文件到此处上传</p>
-          <p className="ant-upload-hint">支持 PDF、Word（.docx）、Excel（.xlsx）格式</p>
+          <p className="ant-upload-hint">支持 Word（.doc / .docx）格式</p>
         </Dragger>
 
         {/* 成功提示 */}

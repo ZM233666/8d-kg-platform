@@ -6,11 +6,13 @@
 - 节点属性沿用 snake_case，与 PG 字段、Neo4jClient.get_subgraph 的硬约束对齐。
 - effective_document_id / extraction_run_id 暂时收下不用，保留签名兼容。
 """
+
 from __future__ import annotations
 
 import json
-import structlog
 from uuid import UUID
+
+import structlog
 
 from app.db.neo4j import get_neo4j_driver
 from app.graph.client import Neo4jClient
@@ -18,15 +20,17 @@ from app.pipeline.context import PipelineContext
 from app.schemas.entity import (
     ActionItem,
     CauseItem,
-    Chunk as ChunkSchema,
     EightDReport,
     FailureMode,
     Organization,
     PartSerial,
+    Person,
     ProductEvent,
     ProductInstance,
 )
-from app.schemas.extraction import RelationTriple
+from app.schemas.entity import (
+    Chunk as ChunkSchema,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -44,6 +48,7 @@ _BUSINESS_LABELS: tuple[tuple[str, type], ...] = (
     ("ProductInstance", ProductInstance),
     ("PartSerial", PartSerial),
     ("Organization", Organization),
+    ("Person", Person),
 )
 
 
@@ -178,6 +183,14 @@ async def write_neo4j(
         )
         nodes_written += 1
 
+    for person in er.persons:
+        await client.merge_node(
+            "Person",
+            {"business_key": person.business_key},
+            _node_props(person),
+        )
+        nodes_written += 1
+
     # ------------------------------------------------------------------
     # 2. 写入 Chunk 节点（从 ctx.chunks，与 v1 行为一致）
     # ------------------------------------------------------------------
@@ -210,19 +223,23 @@ async def write_neo4j(
         existing_keys.add(("PartSerial", ps.business_key))
     for org in er.organizations:
         existing_keys.add(("Organization", org.business_key))
+    for person in er.persons:
+        existing_keys.add(("Person", person.business_key))
 
     skipped_rels: list[dict] = []
     for rel in er.relationships:
         from_present = (rel.from_label, rel.from_key) in existing_keys
         to_present = (rel.to_label, rel.to_key) in existing_keys
         if not (from_present and to_present):
-            skipped_rels.append({
-                "rel_type": rel.rel_type,
-                "from": f"{rel.from_label}/{rel.from_key}",
-                "to": f"{rel.to_label}/{rel.to_key}",
-                "missing_from": not from_present,
-                "missing_to": not to_present,
-            })
+            skipped_rels.append(
+                {
+                    "rel_type": rel.rel_type,
+                    "from": f"{rel.from_label}/{rel.from_key}",
+                    "to": f"{rel.to_label}/{rel.to_key}",
+                    "missing_from": not from_present,
+                    "missing_to": not to_present,
+                }
+            )
             continue
 
         await client.merge_relationship(
@@ -271,6 +288,8 @@ async def write_neo4j(
         _collect_mentions(ps)
     for org in er.organizations:
         _collect_mentions(org)
+    for person in er.persons:
+        _collect_mentions(person)
 
     if mentioned_pairs:
         cypher = """

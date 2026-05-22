@@ -1,23 +1,20 @@
-"""PG Writer：将 ExtractionResult + Chunks 写入 PostgreSQL。"""
+"""PG Writer: 将 ExtractionResult + Chunks 写入 PostgreSQL。"""
 
 from __future__ import annotations
 
 import hashlib
-import os
-import structlog
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import select, update
+import structlog
+from sqlalchemy import delete, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.postgres import async_session_maker
 from app.llm import effective_llm_model
 from app.models import Chunk, Document, ExtractionRun
 from app.pipeline.context import PipelineContext
-from app.schemas.entity import Chunk as ChunkSchema
 
 logger = structlog.get_logger(__name__)
 
@@ -38,7 +35,7 @@ async def write_pg(ctx: PipelineContext) -> dict:
         dict: {"document_id": UUID, "extraction_run_id": UUID, "chunks_written": int}
     """
     er = ctx.extraction_result
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # --- 解析 minio_key，确定文件名 / 路径 ---
     raw_key = ctx.minio_key
@@ -134,6 +131,10 @@ async def write_pg(ctx: PipelineContext) -> dict:
             )
 
         if chunk_rows:
+            # 同一源文件会按 sha256 复用 document_id；重抽时先刷新该文档的 chunk 镜像。
+            await session.execute(
+                delete(Chunk).where(Chunk.document_id == effective_document_id)
+            )
             chunks_stmt = pg_insert(Chunk).values(chunk_rows)
             chunks_stmt = chunks_stmt.on_conflict_do_nothing()
             await session.execute(chunks_stmt)

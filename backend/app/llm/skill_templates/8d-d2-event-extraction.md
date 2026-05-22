@@ -11,15 +11,15 @@
 - 条件性 `ProductInstance`
 - 条件性 `PartSerial`
 - 条件性 `Organization`
+- 条件性 `Person`
 - `ProductEvent -> HAS_8D_REPORT -> EightDReport`
 - `ProductEvent -> HAPPENED_ON -> ProductInstance`
 - `ProductEvent -> RELATED_SERIAL -> PartSerial`
 - `ProductEvent -> RELATED_FAILURE_MODE -> FailureMode`
+- 条件性 `ProductEvent -> REPORTED_BY_PERSON -> Person`
 
 当前 runtime **暂不直接支持**：
 
-- `Person`
-- `REPORTED_BY_PERSON`
 - `REPORTED_BY_ORG`
 - `RELATED_PART`
 - `RESPONSIBLE_ORG`
@@ -162,7 +162,10 @@
 ### `reporter_name`
 
 - 始终先保留原始字符串
-- 即使内部判断更像公司或部门，也不要在当前 runtime 中直接输出 reporter 关系
+- 如果明显是个人，且文本支持稳定，可同时输出：
+  - `Person`
+  - `ProductEvent -> REPORTED_BY_PERSON -> Person`
+- 如果更像公司或部门，不要在当前 runtime 中直接输出 reporter 组织关系
 
 ### `Organization`
 

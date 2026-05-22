@@ -142,6 +142,17 @@ def _build_extraction_result_schema() -> dict[str, Any]:
             "supporting_chunks": _array(_string()),
         }
     )
+    person = _strict_object(
+        {
+            "business_key": _string(),
+            "person_id": _string(),
+            "person_name": _nullable(_string()),
+            "title": _nullable(_string()),
+            "department": _nullable(_string()),
+            "email": _nullable(_string()),
+            "supporting_chunks": _array(_string()),
+        }
+    )
     relation = _strict_object(
         {
             "from_label": _string(),
@@ -162,6 +173,7 @@ def _build_extraction_result_schema() -> dict[str, Any]:
             "product_instances": _array(product_instance),
             "part_serials": _array(part_serial),
             "organizations": _array(organization),
+            "persons": _array(person),
             "relationships": _array(relation),
             "chunks": _array(_strict_object({})),
             "stats": _strict_object({}),

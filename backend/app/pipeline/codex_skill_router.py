@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.config import settings
 from app.pipeline.context import PipelineContext
 
+FULL_DOCUMENT_SECTION: tuple[str, ...] = ("全文", "full_document")
+
 D2_SECTION_KEYWORDS: tuple[str, ...] = (
     "问题描述",
     "故障描述",
@@ -114,7 +116,9 @@ def _has_full_report_text_signal(
     keywords: tuple[str, ...],
 ) -> bool:
     return (
-        section_path == ["全文"] or not section_path or chunk_role in {"unknown", "evidence", "conclusion"}
+        tuple(section_path) in {(value,) for value in FULL_DOCUMENT_SECTION}
+        or not section_path
+        or chunk_role in {"unknown", "evidence", "conclusion"}
     ) and _has_text_fallback(text, keywords)
 
 

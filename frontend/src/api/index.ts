@@ -64,7 +64,7 @@ api.interceptors.response.use(
 // =============================================================================
 
 export const uploadApi = {
-  /** 上传 docx 文档 */
+  /** 上传 Word 文档（.doc / .docx） */
   upload: async (file: File): Promise<UploadResponse> => {
     const form = new FormData()
     form.append('file', file)

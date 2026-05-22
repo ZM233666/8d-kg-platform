@@ -9,7 +9,8 @@
   - `EightDReport.owner_name`
   - `ActionItem.owner_name`
 - 内部判断时，先识别强组织信号，再识别个人信号。
-- 当前 runtime **不支持 `Person` 实体**，所以你不能在最终 JSON 中输出 `Person`。
+- 当前 runtime **已支持保守输出 `Person` 实体**，但只适用于高置信个人场景。
+- 如果更像组织 / 部门，就继续只保留原始字段或输出 `Organization`，不要强行造 `Person`。
 
 ## 判别顺序
 
@@ -55,11 +56,16 @@
 
 - 如果明显是个人：直接保留该字符串到 `reporter_name`
 - 如果明显是组织：也保留原始字符串到 `reporter_name`
-- 当前 runtime 没有 `REPORTED_BY_PERSON` / `REPORTED_BY_ORG` 关系，所以不要为了补关系而创造额外结构
+- 如果明显是个人，且文本稳定支持，可同时输出：
+  - `Person`
+  - `ProductEvent -> REPORTED_BY_PERSON -> Person`
+- 如果明显是组织，仍优先保留原始字符串，不要为了 actor typing 额外创造 reporter 组织关系
 
 ### `owner_name`
 
-- 如果明显是个人：保留到 `owner_name`
+- 如果明显是个人：保留到 `owner_name`，必要时可同时输出：
+  - `Person`
+  - `EightDReport -> OWNED_BY_PERSON -> Person`
 - 如果明显是组织 / 部门：保留到 `owner_name`
 - 只有当文本明确指向报告责任组织时，才额外输出：
   - `Organization`
@@ -68,8 +74,11 @@
 ### `ActionItem.owner_name`
 
 - 同样优先保留原始字符串
+- 如果明显是个人，且文本稳定支持，可同时输出：
+  - `Person`
+  - `ActionItem -> OWNED_BY_PERSON -> Person`
 - 若组织责任归属非常明确，可复用已有 `Organization`
-- 不要创造当前 runtime 不支持的 `OWNED_BY_PERSON`
+- 不要在低置信场景硬造 `OWNED_BY_PERSON`
 
 ## 组织实体何时值得输出
 
@@ -94,6 +103,7 @@
 ## 不确定时的默认策略
 
 - 只保留原始字段
+- 不输出低置信 `Person`
 - 不输出额外组织实体
 - 不发明 schema 之外的关系
 

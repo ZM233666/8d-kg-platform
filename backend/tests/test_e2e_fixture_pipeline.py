@@ -1,4 +1,4 @@
-"""真实服务 e2e: docx -> Codex 抽取 -> PG/Neo4j 写入 -> 查询回看。"""
+"""正式 e2e: committed docx fixture -> mock 抽取 -> PG/Neo4j 写入 -> 查询回看。"""
 
 from __future__ import annotations
 
@@ -22,11 +22,7 @@ from app.services.query_service import search
 from sqlalchemy import func, select
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-EP2002_DOCX = (
-    PROJECT_ROOT
-    / "docs_for_test"
-    / "8D_EP2002阀Secondary regulator out of range故障调查报告_01.docx"
-)
+MOCK_DOCX = PROJECT_ROOT / "backend" / "tests" / "fixtures" / "mock_8d_report.docx"
 
 
 def _port_open(port: int, host: str = "127.0.0.1") -> bool:
@@ -39,36 +35,30 @@ def _port_open(port: int, host: str = "127.0.0.1") -> bool:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_ep2002_live_pipeline_e2e() -> None:
-    if not EP2002_DOCX.exists():
-        pytest.skip(f"missing sample docx: {EP2002_DOCX}")
+async def test_mock_fixture_pipeline_e2e() -> None:
+    assert MOCK_DOCX.exists(), f"missing committed fixture docx: {MOCK_DOCX}"
 
     missing_services = [
         name
         for name, port in (
             ("postgres", 5432),
             ("neo4j", 7687),
-            ("codex-service", 8787),
         )
         if not _port_open(port)
     ]
     if missing_services:
-        pytest.skip(f"missing live services: {', '.join(missing_services)}")
+        pytest.skip(f"missing integration services: {', '.join(missing_services)}")
 
     original_provider = settings.llm_provider
     original_fallback = settings.llm_fallback_provider
-    original_retries = settings.codex_max_retries
-
-    settings.llm_provider = "codex"
+    settings.llm_provider = "mock"
     settings.llm_fallback_provider = None
-    settings.codex_max_retries = max(settings.codex_max_retries, 4)
-    report_id_hint = f"EP2002-REAL-SMOKE-{uuid.uuid4().hex[:8].upper()}"
 
     try:
         ctx = PipelineContext(
             document_id=uuid.uuid4(),
-            minio_key=f"local://{EP2002_DOCX}",
-            report_id_hint=report_id_hint,
+            minio_key=f"local://{MOCK_DOCX}",
+            report_id_hint="MOCK-E2E",
         )
         ctx = await s1_run(ctx)
         ctx = await s2_run(ctx)
@@ -78,9 +68,7 @@ async def test_ep2002_live_pipeline_e2e() -> None:
         assert ctx.extraction_result is not None
         assert ctx.extraction_run_id is not None
         assert ctx.extraction_result.report is not None
-
-        report_key = ctx.extraction_result.report.business_key
-        assert report_key == report_id_hint
+        assert ctx.extraction_result.report.business_key == "FS-2024-001"
 
         async with async_session_maker() as session:
             run_row = await session.scalar(
@@ -93,7 +81,7 @@ async def test_ep2002_live_pipeline_e2e() -> None:
                 select(Document).where(Document.id == run_row.document_id)
             )
             assert document_row is not None
-            assert document_row.file_name == EP2002_DOCX.name
+            assert document_row.file_name == MOCK_DOCX.name
 
             chunk_count = await session.scalar(
                 select(func.count())
@@ -108,71 +96,52 @@ async def test_ep2002_live_pipeline_e2e() -> None:
 
         driver = get_neo4j_driver()
         async with driver.session() as neo_session:
-            report_result = await neo_session.run(
+            result = await neo_session.run(
                 """
                 MATCH (r:EightDReport {business_key: $report_key})
                 OPTIONAL MATCH (e:ProductEvent)-[:HAS_8D_REPORT]->(r)
+                OPTIONAL MATCH (r)-[:ROOT_CAUSE]->(c:CauseItem)
+                OPTIONAL MATCH (r)-[:CORRECTIVE_ACTION|PREVENTIVE_ACTION]->(a:ActionItem)
+                OPTIONAL MATCH (r)-[:AFFECTED_SERIAL]->(:PartSerial)-[:SUPPLIED_BY]->(o:Organization)
                 RETURN r.business_key AS business_key,
                        r.issue_title AS issue_title,
-                       r.owner_name AS owner_name,
-                       r.closed_at AS closed_at,
-                       e.occurred_at AS occurred_at
+                       e.business_key AS event_key,
+                       e.occurred_at AS occurred_at,
+                       count(DISTINCT c) AS cause_count,
+                       count(DISTINCT a) AS action_count,
+                       collect(DISTINCT a.action_id) AS action_ids,
+                       collect(DISTINCT o.business_key) AS supplier_org_keys
                 """,
-                {"report_key": report_key},
+                {"report_key": "FS-2024-001"},
             )
-            report_row = await report_result.single()
-            assert report_row is not None
-            assert report_row["business_key"] == report_key
-            assert report_row["owner_name"] is None
-            assert report_row["closed_at"] is None
-            assert report_row["occurred_at"] == "2022-08-19T00:00:00Z"
+            row = await result.single()
 
-            action_result = await neo_session.run(
-                """
-                MATCH (r:EightDReport {business_key: $report_key})-[:CORRECTIVE_ACTION|PREVENTIVE_ACTION]->(a:ActionItem)
-                OPTIONAL MATCH (a)-[:RESPONSIBLE_ORG]->(o:Organization)
-                RETURN a.action_id AS action_id,
-                       a.completed_at AS completed_at,
-                       a.due_date AS due_date,
-                       o.business_key AS org_key
-                ORDER BY action_id
-                """,
-                {"report_key": report_key},
-            )
-            action_rows = [dict(row) async for row in action_result]
-
-            report_org_result = await neo_session.run(
-                """
-                MATCH (r:EightDReport {business_key: $report_key})-[:RESPONSIBLE_ORG]->(o:Organization)
-                RETURN o.business_key AS org_key
-                """,
-                {"report_key": report_key},
-            )
-            report_org_rows = [dict(row) async for row in report_org_result]
-
-        org_keys = [row["org_key"] for row in action_rows if row["org_key"]]
-        assert "ORG-KB-SUZHOU" in org_keys
-        assert f"ORG-LOCAL::{report_id_hint}::供应商" in org_keys
-        assert report_org_rows == []
-        assert all(row["completed_at"] is None for row in action_rows)
-        kb_action_ids = {
-            row["action_id"] for row in action_rows if row["org_key"] == "ORG-KB-SUZHOU"
+        assert row is not None
+        assert row["business_key"] == "FS-2024-001"
+        assert row["issue_title"] == "EP2002 阀门出厂测试密封面泄漏"
+        assert row["event_key"] == "EVT-FS-2024-001"
+        assert str(row["occurred_at"]).startswith("2026-04-10")
+        assert row["cause_count"] == 1
+        assert row["action_count"] == 3
+        assert set(row["action_ids"]) == {
+            "ACT-FS-2024-001-1",
+            "ACT-FS-2024-001-2",
+            "ACT-FS-2024-001-3",
         }
-        assert kb_action_ids
+        assert "ORG-SUZ-SEAL" in row["supplier_org_keys"]
 
         async with async_session_maker() as session:
             search_items = await search(
                 driver=driver,
                 db=session,
-                query="克诺尔苏州",
+                query="FS-2024-001",
                 top_k=5,
             )
         assert any(
-            item["entity_type"] == "ActionItem" and item["id"] in kb_action_ids
+            item["entity_type"] == "EightDReport" and item["id"] == "FS-2024-001"
             for item in search_items
         )
 
     finally:
         settings.llm_provider = original_provider
         settings.llm_fallback_provider = original_fallback
-        settings.codex_max_retries = original_retries

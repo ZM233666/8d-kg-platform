@@ -1,4 +1,5 @@
 """v0.2 KGtestV2 抽取结果 schema。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,6 +12,7 @@ from app.schemas.entity import (
     FailureMode,
     Organization,
     PartSerial,
+    Person,
     ProductEvent,
     ProductInstance,
 )
@@ -44,6 +46,7 @@ class ExtractionResult(BaseModel):
     product_instances: list[ProductInstance] = Field(default_factory=list)
     part_serials: list[PartSerial] = Field(default_factory=list)
     organizations: list[Organization] = Field(default_factory=list)
+    persons: list[Person] = Field(default_factory=list)
 
     relationships: list[RelationTriple] = Field(default_factory=list)
 

@@ -1,7 +1,7 @@
-"""s4 LLM Extractor (v0.2 KGtestV2)：单次调用，返回完整 ExtractionResult。
+"""s4 LLM Extractor：单次调用，返回完整 ExtractionResult。
 
-v0.2 简化：不再按章节路由分发，整篇 chunks 拼成一段 user_prompt，LLM（或 mock）一次性返回完整 ExtractionResult JSON。
-真实 LLM 在 B4 接入，本批用 MockLLMClient 从 fixture 读取整段 ExtractionResult。
+当前实现不再按章节路由分发，整篇 chunks 拼成一段 user_prompt，
+由统一的 LLM 抽象层（默认 Codex，本地联调可切 mock）一次性返回完整 ExtractionResult JSON。
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from app.pipeline.base import stage
 from app.pipeline.codex_skill_router import CodexSkillSelection, select_codex_skill
 from app.pipeline.context import PipelineContext
 from app.pipeline.relationship_builder import enrich_extraction_result
+from app.pipeline.table_personnel_extractor import enrich_personnel_from_tables
 from app.schemas.extraction import ExtractionResult
 
 logger = structlog.get_logger(__name__)
@@ -30,7 +31,7 @@ def _build_user_prompt(ctx: PipelineContext) -> str:
     template = getattr(prompts, "EXTRACTION_USER_TEMPLATE", None)
     if template:
         return template.format(report_id=report_id, text=body)
-    # B3 兜底 prompt（B4 接 MiniMax 时替换为 prompts.py 里的完整版）
+    # 兜底 prompt；正常情况下由 prompts.py 提供更完整的抽取提示词
     return f"报告 ID: {report_id}\n\n【原文】\n{body}\n\n请输出完整 ExtractionResult JSON。"
 
 
@@ -44,7 +45,11 @@ def _build_system_prompt(skill_selection: CodexSkillSelection) -> str:
             execution_mode=skill_selection.execution_mode,
             prompt_modules=skill_selection.prompt_modules,
         )
-    return getattr(prompts, "EXTRACTION_SYSTEM", "你是 8D 报告抽取助手，输出严格符合 ExtractionResult JSON Schema。")
+    return getattr(
+        prompts,
+        "EXTRACTION_SYSTEM",
+        "你是 8D 报告抽取助手，输出严格符合 ExtractionResult JSON Schema。",
+    )
 
 
 @stage("s4_extract")
@@ -76,6 +81,9 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         },
     )
 
+    # 先把团队表/编写/核对等结构化人员信息补进结果，再统一做关系归一。
+    result = enrich_personnel_from_tables(ctx, result)
+
     # 同步 business_key、补全 relationships（LLM 常漏填或字段名不一致）
     result = enrich_extraction_result(result, report_id_hint=ctx.report_id_hint)
 
@@ -94,7 +102,8 @@ async def run(ctx: PipelineContext) -> PipelineContext:
         "skill_name": usage.metadata.get("skill_name") or skill_selection.skill_name,
         "skill_version": usage.metadata.get("skill_version") or skill_selection.skill_version,
         "skill_route": usage.metadata.get("route_name") or skill_selection.route_name,
-        "skill_modules": usage.metadata.get("prompt_modules") or list(skill_selection.prompt_modules),
+        "skill_modules": usage.metadata.get("prompt_modules")
+        or list(skill_selection.prompt_modules),
         "fallback_provider": usage.metadata.get("fallback_provider"),
         "primary_provider": usage.metadata.get("primary_provider"),
     }

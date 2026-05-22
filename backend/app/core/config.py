@@ -83,13 +83,9 @@ class Settings(BaseSettings):
     minio_secure: bool = False
 
     # === LLM ===
-    llm_provider: str = "mock"  # mock | minimax | codex
+    llm_provider: str = "codex"  # mock | codex | minimax
     llm_fallback_provider: str | None = None
-    llm_base_url: str = "https://api.openai.com/v1"
-    llm_api_key: str = "sk-placeholder"
-    llm_model_default: str = "MiniMax-Text-01"
-    llm_timeout_seconds: int = 120
-    llm_max_retries: int = 3
+    llm_primary_soft_timeout_seconds: int | None = 30
 
     # === Codex Extractor Service ===
     codex_base_url: str = "http://127.0.0.1:8787"
@@ -102,6 +98,13 @@ class Settings(BaseSettings):
     codex_cli_path: str = "codex"
     codex_exec_workdir: str = ""
     codex_exec_model: str | None = None
+
+    # === MiniMax (OpenAI-compatible) ===
+    minimax_api_key: str = ""
+    minimax_base_url: str = "https://api.minimax.chat/v1"
+    minimax_model: str = "MiniMax-M2.7"
+    minimax_timeout_seconds: int = 60
+    minimax_max_retries: int = 3
 
     # === JWT / Auth ===
     secret_key: str = "change-me-in-production"

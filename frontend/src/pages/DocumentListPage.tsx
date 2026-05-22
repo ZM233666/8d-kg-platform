@@ -89,7 +89,13 @@ export const DocumentListPage: React.FC = () => {
       dataIndex: 'mime_type',
       key: 'mime_type',
       width: 80,
-      render: (v: string) => <Tag>{v.includes('word') ? 'Word' : v.includes('pdf') ? 'PDF' : 'Excel'}</Tag>,
+      render: (v: string) => (
+        <Tag>
+          {v.includes('word') || v.includes('officedocument.wordprocessingml')
+            ? 'Word'
+            : '未知'}
+        </Tag>
+      ),
     },
     {
       title: '状态',

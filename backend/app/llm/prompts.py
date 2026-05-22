@@ -1,4 +1,4 @@
-"""v0.2 B4 MiniMax 抽取提示词（仅保留 EXTRACTION_SYSTEM / EXTRACTION_USER_TEMPLATE）。
+"""抽取提示词与 Codex skill 模块加载。
 
 旧 v0.1 多段 prompt（DEFECT_/RCA_/ACTION_/VERIFICATION_/CLOSURE_）已在 B4 弃用。
 """
@@ -23,6 +23,7 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
   "product_instances": [<ProductInstance>, ...],
   "part_serials":      [<PartSerial>, ...],
   "organizations":     [<Organization>, ...],
+  "persons":           [<Person>, ...],
   "relationships":     [<RelationTriple>, ...],
   "chunks":            [],
   "stats":             {}
@@ -70,6 +71,10 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
    必填: business_key（=org_code）, org_code, org_name
    可选: org_type（如 "供应商" / "客户" / "内部部门"）, supporting_chunks
 
+9) Person（数组 "persons"，无则给 []）
+   必填: business_key（=person_id）, person_id
+   可选: person_name, title, department, email, supporting_chunks
+
 ================ 关系（"relationships" 数组）================
 
 每条关系**必须**严格为五字段格式（外加可选 properties）：
@@ -86,9 +91,9 @@ EXTRACTION_SYSTEM = """你是一个专业的 8D 报告知识图谱抽取器。�
 
 Label 取值必须是上面 8 个实体类名之一：
 EightDReport, ProductEvent, FailureMode, CauseItem, ActionItem,
-ProductInstance, PartSerial, Organization
+ProductInstance, PartSerial, Organization, Person
 
-🔒 **rel_type 严格白名单（只能从下面 16 个中选，多一个字符都会被拒绝）**：
+🔒 **rel_type 严格白名单（只能从下面白名单中选，多一个字符都会被拒绝）**：
 
 主线（最常用）：
   - HAS_8D_REPORT          : ProductEvent -> EightDReport（事件挂报告）
@@ -111,6 +116,13 @@ ProductInstance, PartSerial, Organization
   - RESPONSIBLE_ORG        : EightDReport/ActionItem -> Organization（报告责任组织 / 措施责任组织）
   - SUPPLIED_BY            : PartSerial -> Organization（供应商）
 
+人员：
+  - INVOLVES_PERSON        : EightDReport -> Person（团队成员）
+  - AUTHORED_BY_PERSON     : EightDReport -> Person（编写人）
+  - REVIEWED_BY_PERSON     : EightDReport -> Person（核对/审核人）
+  - REPORTED_BY_PERSON     : ProductEvent -> Person（上报人）
+  - OWNED_BY_PERSON        : EightDReport/ActionItem -> Person（负责人）
+
 治理（一般 LLM 不要直接输出，留空即可）：
   - MENTIONED_IN, MENTIONS
 
@@ -119,7 +131,7 @@ ProductInstance, PartSerial, Organization
    - "INTERMEDIATE_CAUSE" / "DIRECT_CAUSE" → 统一用 ROOT_CAUSE（在 CauseItem.cause_type 里区分）
    - "ADDRESSES_FAILURE_MODE" → 用 RELATED_FAILURE_MODE
    - "INVOLVES_PRODUCT" / "INVOLVES_PART" → 用 AFFECTED_PRODUCT / AFFECTED_SERIAL
-   - "REPORTED_BY" / "OWNED_BY" → 不要输出此类关系（信息保留在实体的 owner_name/reporter_name 字段里）
+   - "REPORTED_BY" / "OWNED_BY" → 改成 REPORTED_BY_PERSON / OWNED_BY_PERSON
 
 ================ 时间字段保守规则 ================
 - 只有原文明确出现的业务时间才填写：例如“发生于 2022-08-19”“于 2022-09-02 关闭”“已于 2022-08-25 完成整改”。
@@ -175,6 +187,9 @@ ProductInstance, PartSerial, Organization
   "organizations": [
     {"business_key": "ORG-SUZ-SEAL", "org_code": "ORG-SUZ-SEAL", "org_name": "苏州某密封件供应商", "org_type": "供应商", "supporting_chunks": []}
   ],
+  "persons": [
+    {"business_key": "PER::zhanggong@example.com", "person_id": "PER::zhanggong@example.com", "person_name": "张工", "title": "质量主管", "department": "项目质量", "email": "zhanggong@example.com", "supporting_chunks": []}
+  ],
   "relationships": [
     {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "EightDReport", "to_key": "FS-2024-001", "rel_type": "HAS_8D_REPORT", "properties": {}},
     {"from_label": "ProductEvent", "from_key": "EVT-FS-2024-001", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
@@ -185,6 +200,7 @@ ProductInstance, PartSerial, Organization
     {"from_label": "CauseItem", "from_key": "CAU-FS-2024-001-1", "to_label": "FailureMode", "to_key": "MD-OR-SEAL-FAIL", "rel_type": "RELATED_FAILURE_MODE", "properties": {}},
     {"from_label": "ActionItem", "from_key": "ACT-FS-2024-001-2", "to_label": "CauseItem", "to_key": "CAU-FS-2024-001-1", "rel_type": "VERIFIES_CAUSE", "properties": {}},
     {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "RESPONSIBLE_ORG", "properties": {}},
+    {"from_label": "EightDReport", "from_key": "FS-2024-001", "to_label": "Person", "to_key": "PER::zhanggong@example.com", "rel_type": "OWNED_BY_PERSON", "properties": {}},
     {"from_label": "PartSerial", "from_key": "OR-001::B2024-05", "to_label": "Organization", "to_key": "ORG-SUZ-SEAL", "rel_type": "SUPPLIED_BY", "properties": {}}
   ],
   "chunks": [],
@@ -209,7 +225,7 @@ EXTRACTION_USER_TEMPLATE = """报告标识: {report_id}
 请按 system 中描述的 schema 抽取并输出完整 JSON。注意：
 1. 字段名严格匹配（report 用 d4_root_cause_summary / d5_permanent_correction_summary / d7_prevention_summary）。
 2. relationships 必须是 from_label / from_key / to_label / to_key / rel_type 五字段。
-3. rel_type 只能从 16 个白名单（HAS_8D_REPORT / RELATED_FAILURE_MODE / ROOT_CAUSE / CORRECTIVE_ACTION / PREVENTIVE_ACTION / VERIFIES_CAUSE / HAPPENED_ON / RELATED_SERIAL / AFFECTED_PRODUCT / AFFECTED_SERIAL / TARGET_PRODUCT / TARGET_SERIAL / INSTALLED_ON / RESPONSIBLE_ORG / SUPPLIED_BY / MENTIONED_IN）中选。
+3. rel_type 只能从当前白名单（HAS_8D_REPORT / RELATED_FAILURE_MODE / ROOT_CAUSE / CORRECTIVE_ACTION / PREVENTIVE_ACTION / VERIFIES_CAUSE / HAPPENED_ON / RELATED_SERIAL / AFFECTED_PRODUCT / AFFECTED_SERIAL / TARGET_PRODUCT / TARGET_SERIAL / INSTALLED_ON / RESPONSIBLE_ORG / SUPPLIED_BY / INVOLVES_PERSON / AUTHORED_BY_PERSON / REVIEWED_BY_PERSON / REPORTED_BY_PERSON / OWNED_BY_PERSON / MENTIONED_IN）中选。
 4. 每个实体必须带 business_key。
 5. 直接输出 JSON，不要任何额外文字。
 """
@@ -262,8 +278,8 @@ def build_codex_system_prompt(
     sections.append(
         "================ Codex Final Reminder ================\n"
         "你可以使用附加模块进行内部推理，但最终只输出当前 runtime 支持的 ExtractionResult JSON。\n"
-        "不要输出 Person、原始时间辅助字段、timePrecision、LEADS_TO、RELATED_PART、"
-        "RELATED_EVENT、TARGET_PART、REPORTED_BY_PERSON、REPORTED_BY_ORG "
+        "不要输出原始时间辅助字段、timePrecision、LEADS_TO、RELATED_PART、"
+        "RELATED_EVENT、TARGET_PART、REPORTED_BY_ORG "
         "等当前 schema / rel_type 白名单之外的结构。"
     )
     return "\n\n".join(sections)

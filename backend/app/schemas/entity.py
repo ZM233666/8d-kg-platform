@@ -119,6 +119,16 @@ class Organization(BaseNode):
     org_type: str | None = Field(None, description="制造商/供应商/客户/部门/项目组")
 
 
+class Person(BaseNode):
+    """人员。business_key 约定填充 person_id（通常为报告内局部键）。"""
+
+    person_id: str = Field(..., description="人员 ID，对应 business_key")
+    person_name: str | None = Field(None, description="人员姓名或带称谓的人名")
+    title: str | None = Field(None, description="岗位/称谓")
+    department: str | None = Field(None, description="部门/职能")
+    email: str | None = Field(None, description="邮件地址")
+
+
 # =============================================================================
 # 治理实体
 # =============================================================================

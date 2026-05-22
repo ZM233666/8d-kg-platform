@@ -14,8 +14,8 @@
   - `ProductInstance`
   - `PartSerial`
   - `Organization`
-- 当前 runtime **不支持**：
   - `Person`
+- 当前 runtime **不支持**：
   - `Installation`
   - raw 时间辅助字段
   - `timePrecision`
@@ -36,6 +36,8 @@
 - `AFFECTED_PRODUCT`
 - `AFFECTED_SERIAL`
 - `RESPONSIBLE_ORG`
+- `REPORTED_BY_PERSON`
+- `OWNED_BY_PERSON`
 - `TARGET_SERIAL`
 - `TARGET_PRODUCT`
 - `INSTALLED_ON`
@@ -124,3 +126,5 @@
 - 你可以在内部按 D2 / D4 / D5 / D7 分段思考
 - 但最终只输出一个完整闭合的 `ExtractionResult` JSON
 - 多段信息冲突时，以**结论段 / 审批段 / 已验证描述**优先于早期假设段
+- 如果输入只有一个 `full_document` chunk，不要因为 chunk 只有一块就放弃章节语义
+- 应主动根据正文中的 D1-D8 标题、目录、段落标题和动作句，把 D2 / D4 / D5 / D7 信息重新分段理解后再抽取
