@@ -362,6 +362,55 @@ class Neo4jClient:
             "relationships": relationships,
         }
 
+    async def get_graph_stats(self, *, exclude_chunks: bool = True) -> dict:
+        """返回图谱汇总统计（节点/关系总量及按类型分布）。"""
+        node_rows = await self.execute_read(
+            """
+            MATCH (n)
+            WHERE n.business_key IS NOT NULL
+              AND ($exclude_chunks = false OR NOT n:Chunk)
+            WITH coalesce(labels(n)[0], 'Unknown') AS lbl, count(*) AS c
+            RETURN lbl, c
+            ORDER BY c DESC
+            """,
+            {"exclude_chunks": exclude_chunks},
+        )
+        rel_rows = await self.execute_read(
+            """
+            MATCH (a)-[r]->(b)
+            WHERE (
+                $exclude_chunks = false OR (
+                    NOT a:Chunk
+                    AND NOT b:Chunk
+                    AND type(r) <> 'MENTIONED_IN'
+                    AND type(r) <> 'MENTIONS'
+                )
+            )
+            RETURN type(r) AS rel_type, count(r) AS c
+            ORDER BY c DESC
+            """,
+            {"exclude_chunks": exclude_chunks},
+        )
+        report_row = await self.execute_read(
+            "MATCH (r:EightDReport) RETURN count(r) AS c",
+            {},
+        )
+
+        nodes_by_label = {rec["lbl"]: rec["c"] for rec in node_rows}
+        relationships_by_type = {rec["rel_type"]: rec["c"] for rec in rel_rows}
+        total_nodes = sum(nodes_by_label.values())
+        total_relationships = sum(relationships_by_type.values())
+        report_count = report_row[0]["c"] if report_row else 0
+
+        return {
+            "total_nodes": total_nodes,
+            "total_relationships": total_relationships,
+            "report_count": report_count,
+            "nodes_by_label": nodes_by_label,
+            "relationships_by_type": relationships_by_type,
+            "exclude_chunks": exclude_chunks,
+        }
+
     async def close(self) -> None:
         """关闭 driver。"""
         await self._driver.close()

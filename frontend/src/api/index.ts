@@ -12,6 +12,8 @@ import type {
   SubgraphResponse,
   SubgraphQueryParams,
   GraphCentersResponse,
+  GraphStatsResponse,
+  HealthCheckResponse,
   DocumentListParams,
   ExtractionTriggerResponse,
   StructuredQueryRequest,
@@ -164,9 +166,20 @@ export const graphApi = {
     return data
   },
 
-  /** 全量统计 */
-  getStats: async (): Promise<Record<string, unknown>> => {
-    const { data } = await api.get<Record<string, unknown>>('/graph/stats')
+  /** 图谱汇总统计 */
+  getStats: async (params?: { exclude_chunks?: boolean }): Promise<GraphStatsResponse> => {
+    const { data } = await api.get<GraphStatsResponse>('/graph/stats', { params })
+    return data
+  },
+}
+
+// =============================================================================
+// healthApi - 四件套健康检查
+// =============================================================================
+
+export const healthApi = {
+  check: async (): Promise<HealthCheckResponse> => {
+    const { data } = await api.get<HealthCheckResponse>('/health')
     return data
   },
 }

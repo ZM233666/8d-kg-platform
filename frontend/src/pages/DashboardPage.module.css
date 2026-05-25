@@ -1,13 +1,15 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .title {
@@ -22,7 +24,292 @@
   font-size: 13px;
 }
 
-.card {
+.updatedAt {
+  color: #94a3b8;
+}
+
+.warnBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
   border-radius: 12px !important;
   border: 1px solid #e2e8f0 !important;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.kpiCard :global(.ant-statistic-title) {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.kpiCard :global(.ant-statistic-content-value) {
+  font-size: 28px !important;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kpiIconDoc {
+  color: #3b82f6;
+}
+
+.kpiIconTask {
+  color: #8b5cf6;
+}
+
+.kpiIconGraph {
+  color: #14b8a6;
+}
+
+.kpiIconRel {
+  color: #f59e0b;
+}
+
+.kpiSuffix {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.healthRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.healthPill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.healthOk {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.healthFail {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.healthIcon {
+  font-size: 18px;
+  color: #64748b;
+}
+
+.healthLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.healthStatus {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.healthSummary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 160px;
+}
+
+.healthSummaryOk {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.healthSummaryWarn {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.mainGrid {
+  margin-top: 0 !important;
+}
+
+.panelCard {
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  height: 100%;
+}
+
+.panelCardGap {
+  margin-top: 12px;
+}
+
+.taskSummary {
+  margin-bottom: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.barList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.barRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.barMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.barDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.barLabel {
+  flex: 1;
+  color: #334155;
+}
+
+.barCount {
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.reportList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reportItem {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.reportItem:hover {
+  border-color: #14b8a6;
+  background: #f0fdfa;
+}
+
+.reportTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.reportMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.reportMeta code {
+  font-size: 10px;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.quickGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quickBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.quickBtn :global(.anticon) {
+  font-size: 20px;
+  color: #14b8a6;
+}
+
+.quickBtn:hover {
+  border-color: #14b8a6;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+@media (max-width: 1100px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .healthRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .healthSummary {
+    grid-column: 1 / -1;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 640px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .healthRow {
+    grid-template-columns: 1fr;
+  }
 }

@@ -361,6 +361,22 @@ export interface GraphCentersResponse {
   items: GraphCenterItem[]
 }
 
+export interface GraphStatsResponse {
+  total_nodes: number
+  total_relationships: number
+  report_count: number
+  nodes_by_label: Record<string, number>
+  relationships_by_type: Record<string, number>
+  exclude_chunks: boolean
+}
+
+export interface HealthCheckResponse {
+  db: string
+  neo4j: string
+  redis: string
+  minio: string
+}
+
 export interface ExtractionTriggerResponse {
   run_id: string
   document_id: string

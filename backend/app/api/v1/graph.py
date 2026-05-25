@@ -104,3 +104,16 @@ async def get_global_graph(
             "relationship_count": len(result["relationships"]),
         },
     )
+
+
+@router.get("/stats")
+async def get_graph_stats(
+    exclude_chunks: bool = Query(
+        True,
+        description="为 true 时排除 Chunk 节点及 MENTIONED_IN/MENTIONS 边",
+    ),
+    driver: AsyncDriver = Depends(get_neo4j),
+) -> dict:
+    """图谱汇总统计（节点/关系总量及按类型分布）。"""
+    client = Neo4jClient(driver)
+    return await client.get_graph_stats(exclude_chunks=exclude_chunks)
