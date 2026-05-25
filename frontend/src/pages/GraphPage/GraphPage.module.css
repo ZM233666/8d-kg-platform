@@ -88,6 +88,34 @@
   flex-wrap: wrap;
 }
 
+.filterRow {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterSelect {
+  min-width: 160px;
+  flex: 1;
+}
+
+.filterKeywordInput {
+  min-width: 220px;
+  flex: 1.2;
+}
+
+.globalFilterGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.limitSelect {
+  width: 106px;
+}
+
 .controlGroup {
   display: inline-flex;
   align-items: center;
@@ -147,6 +175,11 @@
     linear-gradient(var(--graph-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--graph-grid) 1px, transparent 1px);
   background-size: 24px 24px;
+}
+
+.neovisCanvas {
+  position: absolute;
+  inset: 0;
 }
 
 .canvasOverlay {
@@ -461,6 +494,13 @@
 
   .searchGroup {
     min-width: 0;
+  }
+
+  .filterSelect,
+  .filterKeywordInput {
+    min-width: 0;
+    width: 100%;
+    flex: auto;
   }
 
   .detailSizeSwitch {

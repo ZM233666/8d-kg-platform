@@ -276,6 +276,92 @@ class Neo4jClient:
             "relationships": relationships,
         }
 
+    async def get_global_graph(
+        self,
+        *,
+        rel_limit: int = 600,
+        exclude_chunks: bool = True,
+    ) -> dict:
+        """返回全图关系视图（近似 MATCH p=()-[]->() RETURN p），并做关系数量限流。"""
+        if rel_limit < 1 or rel_limit > 5000:
+            raise ValueError(f"rel_limit out of range [1, 5000]: {rel_limit}")
+
+        rels_query = """
+            MATCH (a)-[r]->(b)
+            WHERE (
+                $exclude_chunks = false OR (
+                    NOT a:Chunk
+                    AND NOT b:Chunk
+                    AND type(r) <> 'MENTIONED_IN'
+                    AND type(r) <> 'MENTIONS'
+                )
+            )
+            WITH a, r, b
+            ORDER BY coalesce(r.updated_at, r.created_at) DESC
+            LIMIT $rel_limit
+            RETURN type(r) AS rel_type,
+                   a.business_key AS start_bk,
+                   labels(a) AS start_labels,
+                   b.business_key AS end_bk,
+                   labels(b) AS end_labels,
+                   properties(r) AS props
+        """
+        rel_records = await self.execute_read(
+            rels_query,
+            {"rel_limit": rel_limit, "exclude_chunks": exclude_chunks},
+        )
+
+        node_query = """
+            MATCH (n)
+            WHERE n.business_key IN $business_keys
+            RETURN n.business_key AS business_key,
+                   labels(n) AS labels,
+                   properties(n) AS props
+        """
+
+        node_bks: set[str] = set()
+        relationships = []
+        for rec in rel_records:
+            start_bk = rec.get("start_bk")
+            end_bk = rec.get("end_bk")
+            if start_bk:
+                node_bks.add(start_bk)
+            if end_bk:
+                node_bks.add(end_bk)
+            rel_props = rec.get("props")
+            relationships.append(
+                {
+                    "type": rec["rel_type"],
+                    "start_bk": start_bk,
+                    "start_label": rec["start_labels"][0] if rec.get("start_labels") else None,
+                    "end_bk": end_bk,
+                    "end_label": rec["end_labels"][0] if rec.get("end_labels") else None,
+                    "properties": _neo4j_to_json(dict(rel_props)) if rel_props else {},
+                }
+            )
+
+        if not node_bks:
+            return {"nodes": [], "relationships": []}
+
+        node_records = await self.execute_read(
+            node_query,
+            {"business_keys": list(node_bks)},
+        )
+        nodes = [
+            {
+                "business_key": rec["business_key"],
+                "labels": rec.get("labels") or [],
+                "properties": _neo4j_to_json(dict(rec.get("props") or {})),
+            }
+            for rec in node_records
+            if rec.get("business_key")
+        ]
+
+        return {
+            "nodes": nodes,
+            "relationships": relationships,
+        }
+
     async def close(self) -> None:
         """关闭 driver。"""
         await self._driver.close()

@@ -238,8 +238,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           width={220}
           open={mobileDrawerOpen}
           onClose={() => setMobileDrawerOpen(false)}
-          bodyStyle={{ padding: 0, background: isDark ? '#141414' : '#001529' }}
-          headerStyle={{ display: 'none' }}
+          styles={{
+            body: { padding: 0, background: isDark ? '#141414' : '#001529' },
+            header: { display: 'none' },
+          }}
         >
           <div
             style={{

@@ -77,3 +77,30 @@ async def get_subgraph(
             "relationship_count": len(result["relationships"]),
         },
     )
+
+
+@router.get("/all", response_model=SubgraphResponse)
+async def get_global_graph(
+    rel_limit: int = Query(600, ge=1, le=5000, description="返回关系数量上限"),
+    exclude_chunks: bool = Query(
+        True,
+        description="为 true 时过滤 Chunk 节点及 MENTIONED_IN/MENTIONS 边",
+    ),
+    driver: AsyncDriver = Depends(get_neo4j),
+) -> SubgraphResponse:
+    """返回全图关系视图（近似 MATCH p=()-[]->() RETURN p）。"""
+    client = Neo4jClient(driver)
+    result = await client.get_global_graph(
+        rel_limit=rel_limit,
+        exclude_chunks=exclude_chunks,
+    )
+    return SubgraphResponse(
+        center={"business_key": "ALL", "label": "GlobalGraph"},
+        depth=1,
+        nodes=[SubgraphNode(**n) for n in result["nodes"]],
+        relationships=[SubgraphRelationship(**r) for r in result["relationships"]],
+        stats={
+            "node_count": len(result["nodes"]),
+            "relationship_count": len(result["relationships"]),
+        },
+    )

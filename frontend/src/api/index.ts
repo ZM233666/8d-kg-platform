@@ -158,6 +158,12 @@ export const graphApi = {
     return data
   },
 
+  /** 全图关系视图（近似 MATCH p=()-[]->() RETURN p） */
+  getGlobalGraph: async (params?: { rel_limit?: number; exclude_chunks?: boolean }): Promise<SubgraphResponse> => {
+    const { data } = await api.get<SubgraphResponse>('/graph/all', { params })
+    return data
+  },
+
   /** 全量统计 */
   getStats: async (): Promise<Record<string, unknown>> => {
     const { data } = await api.get<Record<string, unknown>>('/graph/stats')

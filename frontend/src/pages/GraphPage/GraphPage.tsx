@@ -1,41 +1,36 @@
-/** 知识图谱可视化页面 */
+/** 知识图谱可视化页面（NeoVis 渲染） */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
+  Button,
   Card,
   Input,
-  Button,
-  Typography,
-  Tag,
-  message,
-  Tooltip,
-  Switch,
+  Select,
   Segmented,
+  Switch,
+  Tag,
+  Tooltip,
+  Typography,
+  message,
 } from 'antd'
-import { PageSpin } from '../../components/PageSpin'
 import {
-  SearchOutlined,
-  ReloadOutlined,
+  ApartmentOutlined,
   ClearOutlined,
   ExpandOutlined,
+  NodeIndexOutlined,
+  ReloadOutlined,
+  SearchOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
-  ApartmentOutlined,
-  NodeIndexOutlined,
 } from '@ant-design/icons'
-import type { Graph, GraphData, NodeData } from '@antv/g6'
 
 import { graphApi } from '../../api'
 import { useSelectedEntityStore } from '../../store'
-import type {
-  GraphCenterItem,
-  SubgraphResponse,
-  SubgraphNode,
-} from '../../types'
+import type { GraphCenterItem, SubgraphNode } from '../../types'
 import styles from './GraphPage.module.css'
 
-const { Text, Title } = Typography
+const { Title } = Typography
 
 const LABEL_COLORS: Record<string, string> = {
   EightDReport: '#3b82f6',
@@ -71,6 +66,7 @@ const REL_CN: Record<string, string> = {
   RESPONSIBLE_ORG: '责任组织',
   SUPPLIED_BY: '供应商',
   MENTIONED_IN: '提及',
+  MENTIONS: '提及',
   HAPPENED_ON: '发生于',
   RELATED_SERIAL: '关联序列',
   AFFECTED_PRODUCT: '影响产品',
@@ -80,397 +76,556 @@ const REL_CN: Record<string, string> = {
   INSTALLED_ON: '安装于',
 }
 
-const HIDDEN_PROPS = new Set([
-  'extraction_version',
-  'schema_version',
-  'review_status',
-  'sensitivity',
-  'confidence',
-  'supporting_chunks',
-  'source_section',
-  'source_doc_id',
-  'node_id',
-  'created_at',
-  'updated_at',
-])
-
-const PROP_LABELS: Record<string, string> = {
-  issue_title: '问题标题',
-  report_no: '报告编号',
-  report_status: '状态',
-  symptom: '现象',
-  event_type: '事件类型',
-  title: '标题',
-  mode_name: '失效描述',
-  cause_type: '原因类型',
-  action_type: '措施类型',
-  org_name: '组织名称',
-  d2_problem_statement: 'D2 问题',
-  d4_root_cause_summary: 'D4 根因',
+const NEOVIS_LABEL_COLOR: Record<string, string> = {
+  EightDReport: '#3b82f6',
+  ProductEvent: '#8b5cf6',
+  FailureMode: '#f59e0b',
+  CauseItem: '#ef4444',
+  ActionItem: '#10b981',
+  ProductInstance: '#06b6d4',
+  PartSerial: '#94a3b8',
+  Organization: '#6366f1',
+  Person: '#a3a3a3',
+  FailureProduct: '#14b8a6',
+  FailureProductMention: '#22d3ee',
+  Chunk: '#64748b',
 }
 
-let G6: typeof import('@antv/g6') | null = null
+const CORE_REL_TYPES = [
+  'HAS_8D_REPORT',
+  'RELATED_FAILURE_MODE',
+  'ROOT_CAUSE',
+  'CORRECTIVE_ACTION',
+  'PREVENTIVE_ACTION',
+  'VERIFIES_CAUSE',
+  'HAPPENED_ON',
+  'RELATED_SERIAL',
+  'AFFECTED_PRODUCT',
+  'AFFECTED_SERIAL',
+  'RESPONSIBLE_ORG',
+  'SUPPLIED_BY',
+  'TARGET_PRODUCT',
+  'TARGET_SERIAL',
+  'INSTALLED_ON',
+]
 
-async function getG6() {
-  if (!G6) {
-    G6 = await import('@antv/g6')
+declare global {
+  interface Window {
+    NeoVis?: unknown
+    __neovisReady?: Promise<void>
   }
-  return G6
 }
 
-function nodeDisplayName(n: SubgraphNode): string {
-  const props = n.properties ?? {}
-  const candidates = [
-    props.issue_title,
-    props.title,
-    props.mode_name,
-    props.symptom,
-    props.org_name,
-  ]
-  for (const c of candidates) {
-    if (typeof c === 'string' && c.trim()) {
-      const t = c.trim()
-      return t.length > 14 ? `${t.slice(0, 14)}…` : t
+type NeoVisInstance = {
+  render: () => void
+  renderWithCypher: (query: string, params?: Record<string, unknown>) => void
+  registerOnEvent: (eventName: string, handler: (event: unknown) => void) => void
+  network?: {
+    fit: () => void
+    getScale: () => number
+    moveTo: (options: { scale?: number }) => void
+    setOptions?: (options: Record<string, unknown>) => void
+    stabilize?: () => void
+    body?: {
+      data?: {
+        nodes?: { getIds: () => Array<string | number> }
+        edges?: { getIds: () => Array<string | number> }
+      }
     }
   }
-  const bk = n.business_key ?? ''
-  return bk.length > 16 ? `${bk.slice(0, 16)}…` : bk
 }
 
-function nodeSize(label: string): number {
-  if (label === 'EightDReport') return 44
-  if (label === 'ProductEvent') return 38
-  return 32
-}
+type NeoVisCtor = new (config: Record<string, unknown>) => NeoVisInstance
 
-function resolveNodeColor(labelType: string): string {
-  return LABEL_COLORS[labelType] ?? '#64748b'
-}
+const NEO_VIS_CONTAINER_ID = 'kg-neovis-canvas'
+const STATIC_NEOVIS_SCRIPT = '/static/neovis.js'
+const NEOVIS_FALLBACK_SCRIPTS = [
+  'https://cdn.jsdelivr.net/npm/neovis.js@2.1.0/dist/neovis.js',
+  'https://unpkg.com/neovis.js@2.1.0/dist/neovis.js',
+]
 
-/** G6 全局 node.style 会覆盖 datum.style，必须用函数按 labelType 着色 */
-function buildNodeStyle(datum: NodeData, centerBk: string) {
-  const labelType = String(datum.data?.labelType ?? 'Unknown')
-  const color = String(datum.data?.nodeColor ?? resolveNodeColor(labelType))
-  const isCenter = datum.id === centerBk
-  const displayName = String(datum.data?.displayName ?? datum.id ?? '')
+const DEFAULT_BOLT_URL = 'bolt://127.0.0.1:7687'
+const DEFAULT_BOLT_USER = 'neo4j'
+const DEFAULT_BOLT_PASSWORD = 'A1S2GKjEtjuY6frwXBCgS43d'
+const DEFAULT_BOLT_DB = 'neo4j'
+const SAFE_INITIAL_CYPHER = 'MATCH (n) WHERE 1=0 RETURN n LIMIT 0'
+
+type LayoutMode = 'neo4j' | 'stable' | 'performance'
+
+function getPhysicsByLayoutMode(mode: LayoutMode, spread = 1.35): Record<string, unknown> {
+  const springLength = Math.round(120 * spread)
+  const stabilization = {
+    enabled: true,
+    iterations: mode === 'performance' ? 900 : 2200,
+    updateInterval: 25,
+    fit: true,
+  }
+
+  if (mode === 'stable') {
+    return {
+      enabled: true,
+      solver: 'barnesHut',
+      barnesHut: {
+        gravitationalConstant: -12000,
+        centralGravity: 0.12,
+        springLength,
+        springConstant: 0.03,
+        damping: 0.12,
+        avoidOverlap: 1,
+      },
+      stabilization,
+    }
+  }
+  if (mode === 'performance') {
+    return {
+      enabled: true,
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: {
+        gravitationalConstant: -60,
+        springLength: Math.round(95 * spread),
+        springConstant: 0.12,
+        avoidOverlap: 0.6,
+      },
+      stabilization: { ...stabilization, iterations: 700 },
+    }
+  }
+  // Neo4j Browser 风格：强斥力 + 较长弹簧，让连通分量自然分开
   return {
-    size: nodeSize(labelType),
-    fill: color,
-    stroke: isCenter ? '#ffffff' : color,
-    lineWidth: isCenter ? 3 : 1.5,
-    shadowColor: isCenter ? color : 'transparent',
-    shadowBlur: isCenter ? 14 : 0,
-    labelText: displayName,
-    labelFill: '#e2e8f0',
-    labelFontSize: 10,
-    labelFontWeight: 500,
-    labelPlacement: 'bottom' as const,
-    labelOffsetY: 8,
+    enabled: true,
+    solver: 'barnesHut',
+    barnesHut: {
+      gravitationalConstant: -22000,
+      centralGravity: 0.08,
+      springLength,
+      springConstant: 0.035,
+      damping: 0.1,
+      avoidOverlap: 1,
+    },
+    stabilization,
   }
 }
 
-function buildGraphSpec(
-  subgraph: SubgraphResponse,
-  showEdgeLabels: boolean
-): GraphData {
-  const nodeIds = new Set(
-    subgraph.nodes.map((n) => n.business_key).filter((bk): bk is string => Boolean(bk))
-  )
-
-  const nodes = subgraph.nodes
-    .filter((n) => n.business_key)
-    .map((n) => {
-      const labelType = n.labels?.[0] ?? 'Unknown'
-      const color = resolveNodeColor(labelType)
-      return {
-        id: n.business_key as string,
-        data: {
-          label: LABEL_CHINESE[labelType] ?? labelType,
-          labelType,
-          nodeColor: color,
-          business_key: n.business_key ?? '',
-          displayName: nodeDisplayName(n),
-          properties: n.properties ?? {},
-        },
-      }
-    })
-
-  const edges = subgraph.relationships
-    .filter(
-      (r) =>
-        r.start_bk &&
-        r.end_bk &&
-        nodeIds.has(r.start_bk) &&
-        nodeIds.has(r.end_bk)
-    )
-    .map((r, i) => ({
-      id: `e-${i}-${r.type}`,
-      source: r.start_bk as string,
-      target: r.end_bk as string,
-      data: { label: r.type, relCn: REL_CN[r.type ?? ''] ?? r.type },
-      style: {
-        stroke: '#475569',
-        lineWidth: 1.2,
-        opacity: 0.55,
-        endArrow: true,
-        ...(showEdgeLabels
-          ? {
-              labelText: REL_CN[r.type ?? ''] ?? r.type ?? '',
-              labelFill: '#94a3b8',
-              labelFontSize: 9,
-              labelBackground: true,
-              labelBackgroundFill: 'rgba(15, 23, 42, 0.85)',
-              labelPadding: [2, 4, 2, 4],
-            }
-          : { labelText: '' }),
+function buildVisConfig(
+  showNodeLabels: boolean,
+  showEdgeLabels: boolean,
+  layoutMode: LayoutMode,
+  layoutSpread: number
+): Record<string, unknown> {
+  return {
+    nodes: {
+      shape: 'dot',
+      font: {
+        size: showNodeLabels ? 11 : 1,
+        color: '#e2e8f0',
       },
-    }))
-
-  return { nodes, edges } as GraphData
+      borderWidth: 1.5,
+      scaling: {
+        min: 8,
+        max: 28,
+      },
+    },
+    edges: {
+      arrows: { to: { enabled: true, scaleFactor: 0.45 } },
+      color: { color: '#64748b', opacity: 0.4 },
+      smooth: {
+        enabled: true,
+        type: 'dynamic',
+      },
+      font: {
+        size: 9,
+        color: '#94a3b8',
+      },
+    },
+    layout: {
+      randomSeed: 42,
+      improvedLayout: true,
+    },
+    physics: getPhysicsByLayoutMode(layoutMode, layoutSpread),
+    interaction: {
+      hover: true,
+      navigationButtons: false,
+      keyboard: true,
+    },
+  }
 }
 
-function pickDisplayProps(properties: Record<string, unknown>): [string, unknown][] {
-  return Object.entries(properties)
-    .filter(([k, v]) => !HIDDEN_PROPS.has(k) && v != null && v !== '' && k !== 'business_key')
-    .slice(0, 8)
+function buildNeovisLabelConfig(showNodeLabels: boolean): Record<string, unknown> {
+  const common = {
+    label: showNodeLabels ? 'business_key' : undefined,
+    font: {
+      size: showNodeLabels ? 10 : 1,
+      color: '#e2e8f0',
+    },
+  }
+  const config: Record<string, unknown> = {}
+  Object.entries(NEOVIS_LABEL_COLOR).forEach(([label, color]) => {
+    config[label] = {
+      ...common,
+      color,
+    }
+  })
+  return config
+}
+
+function toSafeLower(input: string) {
+  return input.trim().toLowerCase()
+}
+
+function loadScript(src: string, force = false) {
+  return new Promise<void>((resolve, reject) => {
+    const key = src
+    const exists = document.querySelector(`script[data-src="${key}"]`)
+    if (exists) {
+      resolve()
+      return
+    }
+    const script = document.createElement('script')
+    script.src = src
+    script.async = true
+    script.dataset.src = key
+    if (force) {
+      script.dataset.force = '1'
+    }
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error(`script load failed: ${src}`))
+    document.body.appendChild(script)
+  })
+}
+
+function resolveNeoVisCtor(): NeoVisCtor | undefined {
+  const w = window as unknown as Record<string, unknown>
+  const candidates = [w.NeoVis, w.Neovis, w.neoVis]
+  for (const item of candidates) {
+    if (!item) continue
+    if (typeof item === 'function') {
+      return item as NeoVisCtor
+    }
+    if (typeof (item as { default?: unknown }).default === 'function') {
+      return (item as { default: NeoVisCtor }).default
+    }
+  }
+  return undefined
+}
+
+async function ensureNeoVisCtor(): Promise<NeoVisCtor> {
+  await loadScript(STATIC_NEOVIS_SCRIPT)
+  if (window.__neovisReady) {
+    try {
+      await window.__neovisReady
+    } catch {
+      // 进入多源重试逻辑
+    }
+  }
+
+  let ctor = resolveNeoVisCtor()
+  if (ctor) return ctor
+
+  for (const src of NEOVIS_FALLBACK_SCRIPTS) {
+    try {
+      await loadScript(`${src}?t=${Date.now()}`, true)
+      ctor = resolveNeoVisCtor()
+      if (ctor) return ctor
+    } catch {
+      // 尝试下一个源
+    }
+  }
+
+  throw new Error('NeoVis not loaded. Please verify /static/neovis.js or CDN accessibility.')
 }
 
 export const GraphPage: React.FC = () => {
   const routeParams = useParams<{ label?: string; businessKey?: string }>()
-  const workspaceRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const graphRef = useRef<Graph | null>(null)
-  const subgraphRef = useRef<SubgraphResponse | null>(null)
-  const centerBkRef = useRef('')
-
-  const [loading, setLoading] = useState(false)
-  const [initialized, setInitialized] = useState(false)
-  const [keyword, setKeyword] = useState('')
-  const [centerLabel, setCenterLabel] = useState('')
-  const [centerKey, setCenterKey] = useState('')
-  const [subgraph, setSubgraph] = useState<SubgraphResponse | null>(null)
-  const [centers, setCenters] = useState<GraphCenterItem[]>([])
-  const [searchLabel, setSearchLabel] = useState('EightDReport')
-  const [showEdgeLabels, setShowEdgeLabels] = useState(false)
-  const [detailPanelSize, setDetailPanelSize] = useState<'compact' | 'default' | 'wide'>('default')
-  const [detailWidth, setDetailWidth] = useState(340)
-  const [draggingDetail, setDraggingDetail] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth > 992
-  )
-
-  const { entity, label, setEntity, clearEntity } = useSelectedEntityStore()
   const [messageApi, contextHolder] = message.useMessage()
+  const { entity, label, setEntity, clearEntity } = useSelectedEntityStore()
 
-  const selectNode = useCallback(
-    (nodeId: string) => {
-      const found = subgraphRef.current?.nodes.find((n) => n.business_key === nodeId)
-      if (!found) return
-      const lt = found.labels?.[0] ?? 'Unknown'
-      setEntity(found, lt, nodeId)
-    },
-    [setEntity]
+  const vizRef = useRef<NeoVisInstance | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [centers, setCenters] = useState<GraphCenterItem[]>([])
+
+  const [searchLabel, setSearchLabel] = useState('EightDReport')
+  const [keyword, setKeyword] = useState('')
+  const [filterKeyword, setFilterKeyword] = useState('')
+  const [showNodeLabels, setShowNodeLabels] = useState(false)
+  const [showEdgeLabels, setShowEdgeLabels] = useState(false)
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('neo4j')
+  const [layoutSpread, setLayoutSpread] = useState(1.45)
+  const [nodeTypeFilters, setNodeTypeFilters] = useState<string[]>([])
+  const [relTypeFilters, setRelTypeFilters] = useState<string[]>([])
+  const [globalRelLimit, setGlobalRelLimit] = useState(300)
+  const [globalExcludeChunks, setGlobalExcludeChunks] = useState(true)
+
+  const [stats, setStats] = useState({ nodes: 0, relationships: 0 })
+  const [centerTag, setCenterTag] = useState('GlobalGraph/ALL')
+  const [graphError, setGraphError] = useState<string | null>(null)
+
+  const [nodeTypeOptions, setNodeTypeOptions] = useState<Array<{ value: string; label: string }>>([])
+  const [relTypeOptions, setRelTypeOptions] = useState<Array<{ value: string; label: string }>>([])
+
+  const boltConfig = useMemo(
+    () => ({
+      serverUrl: import.meta.env.VITE_NEO4J_BOLT_URL || DEFAULT_BOLT_URL,
+      serverUser: import.meta.env.VITE_NEO4J_USERNAME || DEFAULT_BOLT_USER,
+      serverPassword: import.meta.env.VITE_NEO4J_PASSWORD || DEFAULT_BOLT_PASSWORD,
+      serverDatabase: import.meta.env.VITE_NEO4J_DATABASE || DEFAULT_BOLT_DB,
+    }),
+    []
   )
 
-  const renderGraph = useCallback(
-    async (data: SubgraphResponse) => {
-      const graph = graphRef.current
-      if (!graph) return
-      const spec = buildGraphSpec(data, showEdgeLabels)
-      graph.setData(spec)
-      await graph.render()
-      graph.fitView()
-    },
-    [showEdgeLabels]
+  const buildGlobalCypher = useCallback(() => {
+    const where: string[] = ['n.business_key IS NOT NULL', 'm.business_key IS NOT NULL']
+    if (globalExcludeChunks) {
+      where.push('NOT n:Chunk', 'NOT m:Chunk', "type(r) <> 'MENTIONED_IN'", "type(r) <> 'MENTIONS'")
+    }
+    if (nodeTypeFilters.length > 0) {
+      where.push('any(lbl IN labels(n) WHERE lbl IN $nodeTypes)', 'any(lbl IN labels(m) WHERE lbl IN $nodeTypes)')
+    }
+    if (relTypeFilters.length > 0) {
+      where.push('type(r) IN $relTypes')
+    }
+    const kw = toSafeLower(filterKeyword)
+    if (kw) {
+      where.push(
+        "(toLower(coalesce(n.business_key,'')) CONTAINS $kw OR toLower(coalesce(m.business_key,'')) CONTAINS $kw OR toLower(coalesce(n.title,'')) CONTAINS $kw OR toLower(coalesce(m.title,'')) CONTAINS $kw)"
+      )
+    }
+    return {
+      query: `
+        MATCH (n)-[r]->(m)
+        WHERE ${where.join(' AND ')}
+        RETURN n, r, m
+        ORDER BY coalesce(r.updated_at, r.created_at) DESC
+        LIMIT toInteger($relLimit)
+      `,
+      params: {
+        nodeTypes: nodeTypeFilters,
+        relTypes: relTypeFilters,
+        kw,
+        relLimit: Math.max(1, Math.trunc(globalRelLimit)),
+      },
+    }
+  }, [globalExcludeChunks, nodeTypeFilters, relTypeFilters, filterKeyword, globalRelLimit])
+
+  const buildCenterCypher = useCallback(
+    (labelValue: string, businessKey: string) => ({
+      query: `
+        MATCH (c:\`${labelValue}\` {business_key: $centerBk})
+        OPTIONAL MATCH p=(c)-[*1..2]-(n)
+        WITH c, collect(DISTINCT n) + [c] AS ns
+        UNWIND ns AS a
+        UNWIND ns AS b
+        OPTIONAL MATCH (a)-[r]->(b)
+        WHERE r IS NOT NULL
+          AND ($excludeChunks = false OR (NOT a:Chunk AND NOT b:Chunk AND type(r) <> 'MENTIONED_IN' AND type(r) <> 'MENTIONS'))
+        RETURN a AS n, r, b AS m
+        LIMIT toInteger($relLimit)
+      `,
+      params: {
+        centerBk: businessKey,
+        excludeChunks: globalExcludeChunks,
+        relLimit: Math.max(1, Math.trunc(globalRelLimit)),
+      },
+    }),
+    [globalExcludeChunks, globalRelLimit]
   )
 
-  const initGraph = useCallback(async () => {
-    if (!containerRef.current || graphRef.current) return
+  const readStatsFromNetwork = useCallback(() => {
+    const nodes = vizRef.current?.network?.body?.data?.nodes?.getIds?.() ?? []
+    const edges = vizRef.current?.network?.body?.data?.edges?.getIds?.() ?? []
+    setStats({ nodes: nodes.length, relationships: edges.length })
+  }, [])
 
-    const G = await getG6()
-    const container = containerRef.current
+  const applyLayoutModeToNetwork = useCallback((mode: LayoutMode, spread = layoutSpread) => {
+    const network = vizRef.current?.network
+    if (!network?.setOptions) return
+    network.setOptions({
+      physics: getPhysicsByLayoutMode(mode, spread),
+    })
+    if (network.stabilize) {
+      network.stabilize()
+      return
+    }
+    network.fit?.()
+  }, [layoutSpread])
 
-    const graph = new G.Graph({
-      container,
-      width: container.clientWidth,
-      height: container.clientHeight,
-      background: 'transparent',
-      node: {
-        type: 'circle',
-        style: (datum: NodeData) => buildNodeStyle(datum, centerBkRef.current),
-        state: {
-          selected: {
-            stroke: '#ffffff',
-            lineWidth: 3,
-            shadowBlur: 18,
+  const bootstrapNeoVis = useCallback(
+    async (initialQuery: string, initialParams?: Record<string, unknown>) => {
+      const NeoVis = await ensureNeoVisCtor()
+      const config: Record<string, unknown> = {
+        containerId: NEO_VIS_CONTAINER_ID,
+        neo4j: {
+          serverUrl: boltConfig.serverUrl,
+          serverUser: boltConfig.serverUser,
+          serverPassword: boltConfig.serverPassword,
+        },
+        serverDatabase: boltConfig.serverDatabase,
+        labels: buildNeovisLabelConfig(showNodeLabels),
+        relationships: {
+          '*': {
+            caption: showEdgeLabels ? true : false,
+            thickness: 1,
           },
         },
-      },
-      edge: {
-        type: 'line',
-        style: { stroke: '#475569', lineWidth: 1.2, endArrow: true },
-      },
-      layout: {
-        type: 'force',
-        preventOverlap: true,
-        nodeSpacing: 28,
-        linkDistance: 120,
-        nodeStrength: -180,
-        edgeStrength: 0.35,
-        collideStrength: 1,
-      },
-      behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element', 'click-select'],
-    })
-
-    graph.on('node:click', (evt) => {
-      const target = (evt as { target?: { id?: string } }).target
-      const id = target?.id
-      if (id) selectNode(String(id))
-    })
-
-    graphRef.current = graph
-    setInitialized(true)
-
-    const ro = new ResizeObserver(() => {
-      if (container && graph) {
-        graph.setSize(container.clientWidth, container.clientHeight)
+        visConfig: buildVisConfig(showNodeLabels, showEdgeLabels, layoutMode, layoutSpread),
+        // 避免首次 render 时因参数缺失触发 Neo4j 参数错误
+        initialCypher: SAFE_INITIAL_CYPHER,
       }
-    })
-    ro.observe(container)
 
-    return () => {
-      ro.disconnect()
-      graph.destroy()
-      graphRef.current = null
-      setInitialized(false)
-    }
-  }, [selectNode])
+      const viz = new NeoVis(config)
+      vizRef.current = viz
 
-  const loadSubgraph = useCallback(
-    async (nodeLabel: string, nodeBusinessKey: string) => {
+      viz.registerOnEvent('completed', () => {
+        applyLayoutModeToNetwork(layoutMode, layoutSpread)
+        readStatsFromNetwork()
+      })
+      viz.registerOnEvent('error', (event: unknown) => {
+        const detail =
+          (event as { error?: { message?: string } })?.error?.message ||
+          JSON.stringify(event)
+        const tip = `NeoVis 渲染失败：${detail || 'Bolt 连接不可用或认证失败'}`
+        messageApi.error(tip)
+        setGraphError(tip)
+      })
+      viz.registerOnEvent('clickNode', (event: unknown) => {
+        const nodePayload = (event as { node?: { raw?: { labels?: string[]; properties?: Record<string, unknown> } } })?.node?.raw
+        if (!nodePayload) return
+        const labels = nodePayload.labels ?? []
+        const props = nodePayload.properties ?? {}
+        const bk = String(props.business_key ?? '')
+        const node: SubgraphNode = {
+          business_key: bk || null,
+          labels,
+          properties: props,
+        }
+        setEntity(node, labels[0] ?? 'Unknown', bk || undefined)
+      })
+
+      viz.render()
+      viz.renderWithCypher(initialQuery, initialParams ?? {})
+    },
+    [boltConfig, showEdgeLabels, showNodeLabels, layoutMode, layoutSpread, readStatsFromNetwork, messageApi, setEntity, applyLayoutModeToNetwork]
+  )
+
+  const runCypher = useCallback(
+    async (query: string, params?: Record<string, unknown>) => {
       setLoading(true)
-      setKeyword(nodeBusinessKey)
-      setSearchLabel(nodeLabel)
+      setGraphError(null)
       try {
-        const data = await graphApi.getSubgraph({
-          label: nodeLabel,
-          business_key: nodeBusinessKey,
-          depth: 2,
-          exclude_chunks: true,
-        })
-        subgraphRef.current = data
-        setSubgraph(data)
-        setCenterLabel(nodeLabel)
-        setCenterKey(nodeBusinessKey)
-        centerBkRef.current = nodeBusinessKey
-        clearEntity()
-        await renderGraph(data)
-      } catch {
-        messageApi.error(`未找到实体：${nodeLabel} / ${nodeBusinessKey}`)
-        setSubgraph(null)
-        subgraphRef.current = null
+        if (!vizRef.current) {
+          await bootstrapNeoVis(query, params)
+        } else {
+          vizRef.current.renderWithCypher(query, params)
+          readStatsFromNetwork()
+        }
+      } catch (error) {
+        console.error(error)
+        const detail = error instanceof Error ? error.message : String(error)
+        const tip = `图谱加载失败：${detail || '请检查 Neo4j Bolt 连接配置与账号密码'}`
+        messageApi.error(tip)
+        setGraphError(tip)
       } finally {
         setLoading(false)
       }
     },
-    [messageApi, renderGraph, clearEntity]
+    [bootstrapNeoVis, readStatsFromNetwork, messageApi]
+  )
+
+  const loadGlobal = useCallback(async () => {
+    const { query, params } = buildGlobalCypher()
+    setCenterTag('GlobalGraph/ALL')
+    clearEntity()
+    await runCypher(query, params)
+  }, [buildGlobalCypher, clearEntity, runCypher])
+
+  const loadCenter = useCallback(
+    async (labelValue: string, businessKey: string) => {
+      const bk = businessKey.trim()
+      if (!bk) return
+      const { query, params } = buildCenterCypher(labelValue, bk)
+      setCenterTag(`${labelValue}/${bk}`)
+      clearEntity()
+      await runCypher(query, params)
+    },
+    [buildCenterCypher, runCypher, clearEntity]
   )
 
   useEffect(() => {
-    const cleanup = initGraph()
-    return () => {
-      cleanup.then((fn) => fn?.())
-    }
-  }, [initGraph])
-
-  useEffect(() => {
-    if (!initialized) return
-
     const boot = async () => {
-      try {
-        const res = await graphApi.listCenters(20)
-        setCenters(res.items ?? [])
-        if (routeParams.label && routeParams.businessKey) {
-          await loadSubgraph(
-            routeParams.label,
-            decodeURIComponent(routeParams.businessKey)
-          )
-          return
-        }
-        const first = res.items?.[0]
-        if (first?.business_key) {
-          await loadSubgraph(first.label, first.business_key)
-        }
-      } catch {
-        /* ignore */
+      const centerData = await graphApi.listCenters(30)
+      setCenters(centerData.items ?? [])
+
+      const nodeOptions = new Set<string>()
+      ;(centerData.items ?? []).forEach((c) => nodeOptions.add(c.label))
+      Object.keys(LABEL_CHINESE).forEach((k) => nodeOptions.add(k))
+      setNodeTypeOptions(Array.from(nodeOptions).map((v) => ({ value: v, label: LABEL_CHINESE[v] ?? v })))
+      setRelTypeOptions(
+        Object.keys(REL_CN).map((v) => ({
+          value: v,
+          label: REL_CN[v] ?? v,
+        }))
+      )
+
+      if (routeParams.label && routeParams.businessKey) {
+        await loadCenter(routeParams.label, decodeURIComponent(routeParams.businessKey))
+      } else {
+        await loadGlobal()
       }
     }
-
     void boot()
-  }, [initialized, routeParams.label, routeParams.businessKey, loadSubgraph])
+  }, [routeParams.label, routeParams.businessKey, loadCenter, loadGlobal])
 
   useEffect(() => {
-    if (subgraph && centerKey) {
-      void renderGraph(subgraph)
-    }
-  }, [showEdgeLabels, subgraph, centerKey, renderGraph])
-
-  useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth > 992)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  useEffect(() => {
-    if (!draggingDetail) return
-
-    const handleMove = (evt: MouseEvent) => {
-      const workspace = workspaceRef.current
-      if (!workspace || !isDesktop) return
-
-      const rect = workspace.getBoundingClientRect()
-      const next = Math.round(rect.right - evt.clientX)
-      const clamped = Math.max(280, Math.min(520, next))
-      setDetailWidth(clamped)
-    }
-
-    const handleUp = () => setDraggingDetail(false)
-
-    window.addEventListener('mousemove', handleMove)
-    window.addEventListener('mouseup', handleUp)
-    return () => {
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleUp)
-    }
-  }, [draggingDetail, isDesktop])
+    applyLayoutModeToNetwork(layoutMode, layoutSpread)
+  }, [layoutMode, layoutSpread, applyLayoutModeToNetwork])
 
   const handleSearch = async () => {
-    const bk = keyword.trim()
-    if (!bk) return
-    try {
-      await loadSubgraph(searchLabel, bk)
-    } catch {
-      if (searchLabel === 'EightDReport') {
-        try {
-          await loadSubgraph('ProductEvent', bk)
-          setSearchLabel('ProductEvent')
-        } catch {
-          messageApi.error('未找到该 business_key')
-        }
-      }
+    if (!keyword.trim()) {
+      await loadGlobal()
+      return
     }
+    await loadCenter(searchLabel, keyword)
   }
 
-  const handleZoom = (factor: number) => {
-    const graph = graphRef.current
-    if (!graph) return
-    const zoom = graph.getZoom()
-    void graph.zoomTo(zoom * factor, { duration: 200 })
+  const handleReset = async () => {
+    setKeyword('')
+    setFilterKeyword('')
+    setNodeTypeFilters([])
+    setRelTypeFilters([])
+    setGlobalRelLimit(300)
+    setGlobalExcludeChunks(true)
+    setShowNodeLabels(false)
+    setShowEdgeLabels(false)
+    setLayoutMode('neo4j')
+    setLayoutSpread(1.45)
+    await loadGlobal()
   }
 
-  const entityProps = entity?.properties ? pickDisplayProps(entity.properties) : []
+  const handleCorePreset = async () => {
+    setRelTypeFilters(CORE_REL_TYPES)
+    setFilterKeyword('')
+    setNodeTypeFilters([])
+    setGlobalExcludeChunks(true)
+    await loadGlobal()
+  }
+
+  const zoom = (factor: number) => {
+    const network = vizRef.current?.network
+    if (!network) return
+    const current = network.getScale?.() ?? 1
+    network.moveTo({ scale: current * factor })
+  }
+
+  const fitView = () => {
+    vizRef.current?.network?.fit?.()
+  }
+
+  const relayout = () => {
+    applyLayoutModeToNetwork(layoutMode, layoutSpread)
+    messageApi.success('正在重新计算布局…')
+  }
+
   const entityType = entity?.labels?.[0] ?? label ?? ''
   const entityColor = LABEL_COLORS[entityType] ?? '#64748b'
+  const entityEntries = Object.entries(entity?.properties ?? {}).slice(0, 10)
 
   return (
     <div className={styles.page}>
@@ -481,15 +636,12 @@ export const GraphPage: React.FC = () => {
           <Title level={3} className={styles.headerTitle}>
             知识图谱
           </Title>
-          <p className={styles.headerSub}>8D 报告实体关系可视化 · 点击节点查看详情</p>
+          <p className={styles.headerSub}>NeoVis.js（vis-network + Bolt）实时渲染</p>
         </div>
       </header>
 
-      <div
-        ref={workspaceRef}
-        className={`${styles.workspace} ${draggingDetail ? styles.workspaceDragging : ''}`}
-      >
-        <Card className={styles.graphCard} bordered={false}>
+      <div className={styles.workspace}>
+        <Card className={styles.graphCard} variant="borderless">
           <div className={styles.toolbar}>
             <div className={styles.toolbarRow}>
               <div className={styles.searchGroup}>
@@ -516,164 +668,145 @@ export const GraphPage: React.FC = () => {
                 </Button>
               </div>
               <div className={styles.controlGroup}>
-                <Tooltip title="显示关系标签（节点多时建议关闭）">
-                  <Switch
-                    size="small"
-                    checked={showEdgeLabels}
-                    onChange={setShowEdgeLabels}
-                    checkedChildren="标签"
-                    unCheckedChildren="标签"
-                  />
+                <Select
+                  size="small"
+                  value={layoutMode}
+                  onChange={(v) => setLayoutMode(v as LayoutMode)}
+                  options={[
+                    { value: 'neo4j', label: 'Neo4j风格(分散)' },
+                    { value: 'stable', label: '稳定分散' },
+                    { value: 'performance', label: '高性能' },
+                  ]}
+                  style={{ width: 132 }}
+                />
+                <Select
+                  size="small"
+                  value={layoutSpread}
+                  onChange={(v) => setLayoutSpread(v)}
+                  options={[
+                    { value: 1.0, label: '疏密 1.0x' },
+                    { value: 1.35, label: '疏密 1.35x' },
+                    { value: 1.7, label: '疏密 1.7x' },
+                    { value: 2.1, label: '疏密 2.1x' },
+                  ]}
+                  className={styles.limitSelect}
+                />
+                <Tooltip title="显示节点标签">
+                  <Switch size="small" checked={showNodeLabels} onChange={setShowNodeLabels} checkedChildren="节点名" unCheckedChildren="节点名" />
+                </Tooltip>
+                <Tooltip title="显示关系标签">
+                  <Switch size="small" checked={showEdgeLabels} onChange={setShowEdgeLabels} checkedChildren="关系" unCheckedChildren="关系" />
                 </Tooltip>
                 <Tooltip title="适应画布">
-                  <Button size="small" icon={<ExpandOutlined />} onClick={() => graphRef.current?.fitView()} />
+                  <Button size="small" icon={<ExpandOutlined />} onClick={fitView} />
                 </Tooltip>
-                <Tooltip title="刷新子图">
-                  <Button
-                    size="small"
-                    icon={<ReloadOutlined />}
-                    onClick={() => centerKey && void loadSubgraph(centerLabel, centerKey)}
-                    disabled={!centerKey}
-                  />
+                <Tooltip title="重新计算力导向布局（不重新查询）">
+                  <Button size="small" onClick={relayout}>
+                    重布局
+                  </Button>
                 </Tooltip>
-                <Tooltip title="清空">
-                  <Button
-                    size="small"
-                    icon={<ClearOutlined />}
-                    onClick={() => {
-                      setKeyword('')
-                      setSubgraph(null)
-                      subgraphRef.current = null
-                      setCenterLabel('')
-                      setCenterKey('')
-                      clearEntity()
-                      graphRef.current?.setData({ nodes: [], edges: [] })
-                      void graphRef.current?.render()
-                    }}
-                  />
+                <Tooltip title="重载">
+                  <Button size="small" icon={<ReloadOutlined />} onClick={() => void loadGlobal()} />
+                </Tooltip>
+                <Tooltip title="清空筛选并重载">
+                  <Button size="small" icon={<ClearOutlined />} onClick={() => void handleReset()} />
                 </Tooltip>
               </div>
-              <Segmented
-                size="small"
-                className={styles.detailSizeSwitch}
-                value={detailPanelSize}
-                onChange={(value) => {
-                  const next = value as 'compact' | 'default' | 'wide'
-                  setDetailPanelSize(next)
-                  if (next === 'compact') setDetailWidth(300)
-                  else if (next === 'wide') setDetailWidth(420)
-                  else setDetailWidth(340)
-                }}
-                options={[
-                  { value: 'compact', label: '详情窄' },
-                  { value: 'default', label: '详情中' },
-                  { value: 'wide', label: '详情宽' },
-                ]}
-              />
             </div>
-            <div className={styles.legendRow}>
-              {Object.entries(LABEL_COLORS)
-                .filter(([k]) => k !== 'Chunk')
-                .map(([k, color]) => (
-                  <span key={k} className={styles.legendChip}>
-                    <span className={styles.legendDot} style={{ background: color }} />
-                    {LABEL_CHINESE[k]}
-                  </span>
-                ))}
+
+            <div className={styles.filterRow}>
+              <Select
+                size="small"
+                mode="multiple"
+                allowClear
+                maxTagCount="responsive"
+                placeholder="节点类型筛选"
+                value={nodeTypeFilters}
+                onChange={(v) => setNodeTypeFilters(v)}
+                options={nodeTypeOptions}
+                className={styles.filterSelect}
+              />
+              <Select
+                size="small"
+                mode="multiple"
+                allowClear
+                maxTagCount="responsive"
+                placeholder="关系类型筛选"
+                value={relTypeFilters}
+                onChange={(v) => setRelTypeFilters(v)}
+                options={relTypeOptions}
+                className={styles.filterSelect}
+              />
+              <Input
+                size="small"
+                allowClear
+                value={filterKeyword}
+                onChange={(e) => setFilterKeyword(e.target.value)}
+                placeholder="图内关键词筛选（business_key/title）"
+                className={styles.filterKeywordInput}
+              />
+              <div className={styles.globalFilterGroup}>
+                <Select
+                  size="small"
+                  value={globalRelLimit}
+                  onChange={(v) => setGlobalRelLimit(v)}
+                  options={[
+                    { value: 200, label: '关系200' },
+                    { value: 300, label: '关系300' },
+                    { value: 600, label: '关系600' },
+                    { value: 1000, label: '关系1000' },
+                  ]}
+                  className={styles.limitSelect}
+                />
+                <Tooltip title="过滤 Chunk 与提及边">
+                  <Switch size="small" checked={globalExcludeChunks} onChange={setGlobalExcludeChunks} checkedChildren="去Chunk" unCheckedChildren="含Chunk" />
+                </Tooltip>
+                <Button size="small" onClick={() => void loadGlobal()}>
+                  重载全图
+                </Button>
+                <Button size="small" onClick={() => void handleCorePreset()}>
+                  仅主干关系
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className={styles.canvasWrap} ref={containerRef}>
+          <div className={styles.canvasWrap}>
             {loading && (
               <div className={styles.loadingMask}>
-                <PageSpin tip="加载子图..." fullPage={false} />
+                <div style={{ color: '#fff' }}>加载图谱中...</div>
               </div>
             )}
-
-            {!subgraph && !loading && (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyInner}>
-                  <NodeIndexOutlined style={{ fontSize: 36, color: '#14b8a6', marginBottom: 12 }} />
-                  <Text strong style={{ fontSize: 16 }}>选择中心节点以展开图谱</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 13 }}>
-                    输入 business_key 查询，或点击下方报告
-                  </Text>
-                  {centers.length > 0 && (
-                    <div className={styles.quickReports}>
-                      {centers.map((c) => (
-                        <Button
-                          key={c.business_key}
-                          size="small"
-                          type="primary"
-                          ghost
-                          onClick={() => void loadSubgraph(c.label, c.business_key)}
-                        >
-                          {c.title || c.business_key}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+            {graphError && !loading && (
+              <div className={styles.loadingMask}>
+                <div style={{ color: '#fff', maxWidth: 560, textAlign: 'center' }}>{graphError}</div>
               </div>
             )}
-
+            <div id={NEO_VIS_CONTAINER_ID} className={styles.neovisCanvas} />
             <div className={styles.floatingControls}>
               <Tooltip title="放大" placement="left">
-                <Button className={styles.floatingBtn} icon={<ZoomInOutlined />} onClick={() => handleZoom(1.25)} />
+                <Button className={styles.floatingBtn} icon={<ZoomInOutlined />} onClick={() => zoom(1.2)} />
               </Tooltip>
               <Tooltip title="缩小" placement="left">
-                <Button className={styles.floatingBtn} icon={<ZoomOutOutlined />} onClick={() => handleZoom(0.8)} />
+                <Button className={styles.floatingBtn} icon={<ZoomOutOutlined />} onClick={() => zoom(0.85)} />
               </Tooltip>
               <Tooltip title="适应视图" placement="left">
-                <Button
-                  className={styles.floatingBtn}
-                  icon={<ApartmentOutlined />}
-                  onClick={() => graphRef.current?.fitView()}
-                />
+                <Button className={styles.floatingBtn} icon={<ApartmentOutlined />} onClick={fitView} />
               </Tooltip>
             </div>
           </div>
 
-          {subgraph && (
-            <div className={styles.statsBar}>
-              <span className={styles.statPill}>
-                节点 <strong>{subgraph.stats?.node_count ?? subgraph.nodes.length}</strong>
-              </span>
-              <span className={styles.statPill}>
-                关系 <strong>{subgraph.stats?.relationship_count ?? subgraph.relationships.length}</strong>
-              </span>
-              {centerKey && (
-                <span className={styles.statPill}>
-                  中心 <code>{centerLabel}/{centerKey}</code>
-                </span>
-              )}
-            </div>
-          )}
+          <div className={styles.statsBar}>
+            <span className={styles.statPill}>节点 <strong>{stats.nodes}</strong></span>
+            <span className={styles.statPill}>关系 <strong>{stats.relationships}</strong></span>
+            <span className={styles.statPill}>中心 <code>{centerTag}</code></span>
+            <span className={styles.statPill}>
+              Bolt <code>{boltConfig.serverUser}@{boltConfig.serverUrl}</code>
+            </span>
+          </div>
         </Card>
 
-        <button
-          type="button"
-          aria-label="调整详情面板宽度"
-          className={styles.resizeHandle}
-          onMouseDown={() => {
-            if (isDesktop) {
-              setDraggingDetail(true)
-            }
-          }}
-        />
-
-        <Card
-          className={styles.detailCard}
-          style={isDesktop ? { width: detailWidth } : undefined}
-          title={
-            <span>
-              <NodeIndexOutlined style={{ marginRight: 8, color: '#14b8a6' }} />
-              节点详情
-            </span>
-          }
-          bordered={false}
-        >
+        <Card className={styles.detailCard} variant="borderless" title={<span><NodeIndexOutlined style={{ marginRight: 8, color: '#14b8a6' }} />节点详情</span>}>
           {entity ? (
             <>
               <div className={styles.entityHeader}>
@@ -682,25 +815,18 @@ export const GraphPage: React.FC = () => {
                   <Tag color={entityColor} style={{ marginBottom: 6 }}>
                     {LABEL_CHINESE[entityType] ?? entityType}
                   </Tag>
-                  <p className={styles.entityTitle}>
-                    {(entity.properties?.issue_title as string) ||
-                      (entity.properties?.title as string) ||
-                      (entity.properties?.symptom as string) ||
-                      entity.business_key}
-                  </p>
+                  <p className={styles.entityTitle}>{String(entity.properties?.title ?? entity.business_key ?? '')}</p>
                   <div className={styles.entityKey}>{entity.business_key}</div>
                 </div>
               </div>
-              {entityProps.length > 0 && (
-                <div className={styles.propList}>
-                  {entityProps.map(([k, v]) => (
-                    <div key={k} className={styles.propItem}>
-                      <div className={styles.propKey}>{PROP_LABELS[k] ?? k}</div>
-                      <div className={styles.propVal}>{String(v)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className={styles.propList}>
+                {entityEntries.map(([k, v]) => (
+                  <div key={k} className={styles.propItem}>
+                    <div className={styles.propKey}>{k}</div>
+                    <div className={styles.propVal}>{String(v)}</div>
+                  </div>
+                ))}
+              </div>
             </>
           ) : (
             <div className={styles.detailEmpty}>
@@ -717,13 +843,11 @@ export const GraphPage: React.FC = () => {
                 <button
                   key={c.business_key}
                   type="button"
-                  className={`${styles.reportItem} ${centerKey === c.business_key ? styles.reportItemActive : ''}`}
-                  onClick={() => void loadSubgraph(c.label, c.business_key)}
+                  className={styles.reportItem}
+                  onClick={() => void loadCenter(c.label, c.business_key)}
                 >
                   <div className={styles.reportItemTitle}>{c.title || c.business_key}</div>
-                  <div className={styles.reportItemMeta}>
-                    {c.business_key} · {c.degree} 条关联
-                  </div>
+                  <div className={styles.reportItemMeta}>{c.business_key} · {c.degree} 条关联</div>
                 </button>
               ))}
             </div>
