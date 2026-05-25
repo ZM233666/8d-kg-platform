@@ -9,7 +9,6 @@ import {
   Tag,
   Space,
   Typography,
-  Breadcrumb,
   Button,
   message,
   Tooltip,
@@ -18,6 +17,7 @@ import {
   Empty,
   DatePicker,
   Divider,
+  Grid,
 } from 'antd'
 import {
   SearchOutlined,
@@ -32,6 +32,7 @@ import { useQueryHistoryStore } from '../../store'
 import { queryApi } from '../../api'
 import type { QueryHistoryItem } from '../../store'
 import type { StructuredQueryEntityType, StructuredQueryResponse } from '../../types'
+import styles from './QueryPage.module.css'
 
 const { Text } = Typography
 
@@ -46,6 +47,16 @@ const ENTITY_FILTER_OPTIONS = [
   { label: '部件序列', value: 'PartSerial' },
   { label: '组织', value: 'Organization' },
 ]
+const ENTITY_TAG_COLOR: Record<string, string> = {
+  EightDReport: 'blue',
+  ProductEvent: 'purple',
+  FailureMode: 'gold',
+  CauseItem: 'volcano',
+  ActionItem: 'green',
+  ProductInstance: 'cyan',
+  PartSerial: 'geekblue',
+  Organization: 'magenta',
+}
 
 interface SearchResult {
   id: string
@@ -77,6 +88,7 @@ const normalizeStructuredResults = (
   }))
 
 export const QueryPage: React.FC = () => {
+  const screens = Grid.useBreakpoint()
   const [messageApi, contextHolder] = message.useMessage()
   const [keyword, setKeyword] = useState('')
   const [entityFilter, setEntityFilter] = useState('')
@@ -88,6 +100,7 @@ export const QueryPage: React.FC = () => {
   const [hasSearched, setHasSearched] = useState(false)
 
   const { history, addQuery, removeQuery, clearHistory } = useQueryHistoryStore()
+  const isMobile = !screens.md
 
   const handleSearch = useCallback(async (inputKeyword?: string) => {
     const resolvedKeyword = (inputKeyword ?? keyword).trim()
@@ -180,8 +193,9 @@ export const QueryPage: React.FC = () => {
       dataIndex: 'entity_type',
       key: 'entity_type',
       width: 120,
+      responsive: ['sm'],
       render: (v: string) => (
-        <Tag color={v === 'EightDReport' ? 'blue' : v === 'ActionItem' ? 'green' : 'default'}>
+        <Tag color={ENTITY_TAG_COLOR[v] ?? 'default'}>
           {v}
         </Tag>
       ),
@@ -192,6 +206,7 @@ export const QueryPage: React.FC = () => {
       key: 'business_key',
       width: 180,
       ellipsis: true,
+      responsive: ['md'],
       render: (v?: string) => <Text code>{v || '-'}</Text>,
     },
     {
@@ -210,6 +225,7 @@ export const QueryPage: React.FC = () => {
       dataIndex: 'match_score',
       key: 'match_score',
       width: 80,
+      responsive: ['sm'],
       sorter: (a, b) => a.match_score - b.match_score,
       render: (v: number) => (
         <Text strong style={{ color: v > 0.8 ? '#52c41a' : v > 0.5 ? '#faad14' : '#8c8c8c' }}>
@@ -222,6 +238,7 @@ export const QueryPage: React.FC = () => {
       dataIndex: 'timestamp',
       key: 'timestamp',
       width: 160,
+      responsive: ['lg'],
       render: (v: string) => new Date(v).toLocaleString('zh-CN'),
     },
     {
@@ -230,6 +247,7 @@ export const QueryPage: React.FC = () => {
       key: 'source_doc_id',
       width: 180,
       ellipsis: true,
+      responsive: ['xl'],
       render: (v?: string | null) => v || '-',
     },
     {
@@ -259,6 +277,7 @@ export const QueryPage: React.FC = () => {
       dataIndex: 'resultCount',
       key: 'resultCount',
       width: 80,
+      responsive: ['sm'],
       render: (v?: number) => v ?? '-',
     },
     {
@@ -266,6 +285,7 @@ export const QueryPage: React.FC = () => {
       dataIndex: 'timestamp',
       key: 'timestamp',
       width: 160,
+      responsive: ['xl'],
       render: (v: string) => new Date(v).toLocaleString('zh-CN'),
     },
     {
@@ -293,19 +313,26 @@ export const QueryPage: React.FC = () => {
   ]
 
   return (
-    <div>
+    <div className={styles.page}>
       {contextHolder}
 
-      <Breadcrumb style={{ marginBottom: 16 }} items={[{ title: '首页' }, { title: '语义检索' }]} />
+      <header className={styles.header}>
+        <div>
+          <Typography.Title level={3} className={styles.title}>
+            语义检索
+          </Typography.Title>
+          <p className={styles.subtitle}>关键词检索 + 时间筛选，支持历史回放</p>
+        </div>
+      </header>
 
-      <Row gutter={16}>
+      <Row gutter={[12, 12]}>
         {/* 左侧：搜索 */}
-        <Col span={17}>
-          <Card title="实体检索" style={{ borderRadius: 8, marginBottom: 16 }}>
+        <Col xs={24} lg={17}>
+          <Card className={styles.card} title="实体检索" style={{ marginBottom: 12 }}>
             <Space direction="vertical" style={{ width: '100%' }} size={12}>
-              <Space style={{ width: '100%' }}>
+              <Space style={{ width: '100%' }} wrap>
                 <Input
-                  size="large"
+                  size={isMobile ? 'middle' : 'large'}
                   placeholder="输入关键词，按 Enter 搜索..."
                   prefix={<SearchOutlined />}
                   value={keyword}
@@ -323,7 +350,7 @@ export const QueryPage: React.FC = () => {
                 />
                 <Button
                   type="primary"
-                  size="large"
+                  size={isMobile ? 'middle' : 'large'}
                   icon={<SearchOutlined />}
                   onClick={() => {
                     void handleSearch()
@@ -351,7 +378,7 @@ export const QueryPage: React.FC = () => {
                   placeholder={temporalEntityType === 'EightDReport' ? '报告结束日期' : '事件结束日期'}
                   onChange={handleTemporalEndChange}
                 />
-                <Button onClick={handleStructuredSearch} loading={loading}>
+                <Button size={isMobile ? 'small' : 'middle'} onClick={handleStructuredSearch} loading={loading}>
                   按时间筛选
                 </Button>
               </Space>
@@ -362,14 +389,22 @@ export const QueryPage: React.FC = () => {
           </Card>
 
           {/* 搜索结果 */}
-          <Card title="检索结果" extra={<Text type="secondary">共 {filteredResults.length} 条</Text>} style={{ borderRadius: 8 }}>
+          <Card className={styles.card} title="检索结果" extra={<Text type="secondary">共 {filteredResults.length} 条</Text>}>
             {filteredResults.length > 0 ? (
               <Table
+                size={isMobile ? 'small' : 'middle'}
                 columns={resultColumns}
                 dataSource={filteredResults}
                 rowKey="id"
                 loading={loading}
-                pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 条` }}
+                scroll={{ x: 900 }}
+                pagination={{
+                  pageSize: 10,
+                  showTotal: (t) => `共 ${t} 条`,
+                  simple: isMobile,
+                  size: isMobile ? 'small' : 'default',
+                }}
+                locale={{ emptyText: <Empty description="暂无检索结果" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
               />
             ) : hasSearched ? (
               <Empty description="未找到匹配结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -380,15 +415,15 @@ export const QueryPage: React.FC = () => {
         </Col>
 
         {/* 右侧：查询历史 */}
-        <Col span={7}>
+        <Col xs={24} lg={7}>
           <Card
+            className={styles.card}
             title={<><HistoryOutlined /> 查询历史</>}
             extra={
               history.length > 0 ? (
                 <Button size="small" danger onClick={clearHistory}>清空</Button>
               ) : null
             }
-            style={{ borderRadius: 8 }}
           >
             {history.length > 0 ? (
               <Table
@@ -396,7 +431,9 @@ export const QueryPage: React.FC = () => {
                 dataSource={history}
                 rowKey="id"
                 size="small"
-                pagination={{ pageSize: 10 }}
+                scroll={{ x: 420 }}
+                pagination={{ pageSize: 10, simple: true, size: 'small' }}
+                locale={{ emptyText: <Empty description="暂无查询历史" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
               />
             ) : (
               <Empty description="暂无查询历史" image={Empty.PRESENTED_IMAGE_SIMPLE} />

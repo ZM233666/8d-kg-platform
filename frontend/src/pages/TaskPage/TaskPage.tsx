@@ -11,10 +11,10 @@ import {
   Space,
   Tag,
   Typography,
-  Breadcrumb,
   message,
   Tooltip,
   Popconfirm,
+  Grid,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -30,6 +30,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { useTaskStore } from '../../store'
 import { taskApi } from '../../api'
 import type { Task, TaskStatus } from '../../types'
+import styles from './TaskPage.module.css'
 
 const { Text } = Typography
 
@@ -49,6 +50,7 @@ const formatDuration = (started: string, finished?: string): string => {
 
 export const TaskPage: React.FC = () => {
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
   const [searchParams] = useSearchParams()
   const documentId = searchParams.get('document_id') ?? undefined
 
@@ -56,6 +58,7 @@ export const TaskPage: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage()
   const [loading, setLoading] = useState(false)
   const polling = tasks.some((t) => t.status === 'pending' || t.status === 'running')
+  const isMobile = !screens.md
 
   // 加载任务列表（GET /extraction-runs）
   const loadTasks = useCallback(async (silent = false) => {
@@ -129,6 +132,7 @@ export const TaskPage: React.FC = () => {
       key: 'id',
       width: 140,
       ellipsis: true,
+      responsive: ['sm'],
       render: (id: string) => (
         <Tooltip title={id}>
           <Text code style={{ fontSize: 12 }}>{id.slice(0, 8)}...</Text>
@@ -141,6 +145,7 @@ export const TaskPage: React.FC = () => {
       key: 'document_file_name',
       width: 220,
       ellipsis: true,
+      responsive: ['xs'],
       render: (name: string | undefined, record) => (
         <Tooltip title={record.document_id}>
           <Text ellipsis>{name || `${record.document_id.slice(0, 8)}...`}</Text>
@@ -152,6 +157,7 @@ export const TaskPage: React.FC = () => {
       dataIndex: 'pipeline_version',
       key: 'pipeline_version',
       width: 90,
+      responsive: ['lg'],
       render: (v: string) => <Tag>{v}</Tag>,
     },
     {
@@ -159,6 +165,7 @@ export const TaskPage: React.FC = () => {
       dataIndex: 'llm_model',
       key: 'llm_model',
       width: 100,
+      responsive: ['xl'],
       render: (v?: string) => v ?? '-',
     },
     {
@@ -166,6 +173,7 @@ export const TaskPage: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 100,
+      responsive: ['xs'],
       render: (status: TaskStatus) => {
         const cfg = STATUS_CONFIG[status]
         return (
@@ -177,6 +185,7 @@ export const TaskPage: React.FC = () => {
       title: '进度',
       key: 'progress',
       width: 120,
+      responsive: ['md'],
       render: (_, record) => {
         if (record.status === 'succeeded') return <Badge status="success" text="完成" />
         if (record.status === 'failed') return <Badge status="error" text="失败" />
@@ -194,6 +203,7 @@ export const TaskPage: React.FC = () => {
       title: '耗时',
       key: 'duration',
       width: 80,
+      responsive: ['lg'],
       render: (_, record) => formatDuration(record.started_at, record.finished_at),
     },
     {
@@ -201,6 +211,7 @@ export const TaskPage: React.FC = () => {
       dataIndex: 'started_at',
       key: 'started_at',
       width: 160,
+      responsive: ['xl'],
       render: (v: string) => new Date(v).toLocaleString('zh-CN'),
     },
     {
@@ -236,13 +247,20 @@ export const TaskPage: React.FC = () => {
   ]
 
   return (
-    <div>
+    <div className={styles.page}>
       {contextHolder}
 
-      <Breadcrumb style={{ marginBottom: 16 }} items={[{ title: '首页' }, { title: '任务管理' }]} />
+      <header className={styles.header}>
+        <div>
+          <Typography.Title level={3} className={styles.title}>
+            抽取任务
+          </Typography.Title>
+          <p className={styles.subtitle}>统一查看任务状态，支持重试、取消与跳转详情</p>
+        </div>
+      </header>
 
       {/* 统计卡片 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div className={styles.statsGrid}>
         <Card size="small" variant="outlined">
           <Statistic
             title="全部任务"
@@ -278,21 +296,29 @@ export const TaskPage: React.FC = () => {
 
       {/* 任务表格 */}
       <Card
+        className={styles.tableCard}
         title="抽取任务列表"
         extra={
-          <Button icon={<ReloadOutlined />} onClick={loadTasks} loading={loading}>
+          <Button size={isMobile ? 'small' : 'middle'} icon={<ReloadOutlined />} onClick={loadTasks} loading={loading}>
             刷新
           </Button>
         }
-        style={{ borderRadius: 8 }}
       >
         <Table
+          size={isMobile ? 'small' : 'middle'}
           columns={columns}
           dataSource={tasks}
           rowKey="id"
           scroll={{ x: 1200 }}
           loading={loading}
-          pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `共 ${total} 条` }}
+          pagination={{
+            pageSize: 20,
+            showSizeChanger: !isMobile,
+            showTotal: (total) => `共 ${total} 条`,
+            simple: isMobile,
+            size: isMobile ? 'small' : 'default',
+          }}
+          locale={{ emptyText: '暂无任务' }}
         />
       </Card>
 

@@ -1,6 +1,6 @@
 /** 8D 知识图谱平台 - 根组件 */
 
-import React, { Suspense, useState } from 'react'
+import React, { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConfigProvider, App as AntApp, Result, Button, ThemeConfig } from 'antd'

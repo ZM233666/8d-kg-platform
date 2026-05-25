@@ -1,0 +1,96 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.title {
+  margin: 0 !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  align-items: start;
+}
+
+.mainCard,
+.sideCard {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.progressWrap {
+  margin-top: 10px;
+}
+
+.alert {
+  margin-top: 10px;
+}
+
+.sideTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.rules {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: #475569;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sideMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

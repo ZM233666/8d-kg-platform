@@ -237,6 +237,7 @@ function pickDisplayProps(properties: Record<string, unknown>): [string, unknown
 
 export const GraphPage: React.FC = () => {
   const routeParams = useParams<{ label?: string; businessKey?: string }>()
+  const workspaceRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<Graph | null>(null)
   const subgraphRef = useRef<SubgraphResponse | null>(null)
@@ -251,6 +252,12 @@ export const GraphPage: React.FC = () => {
   const [centers, setCenters] = useState<GraphCenterItem[]>([])
   const [searchLabel, setSearchLabel] = useState('EightDReport')
   const [showEdgeLabels, setShowEdgeLabels] = useState(false)
+  const [detailPanelSize, setDetailPanelSize] = useState<'compact' | 'default' | 'wide'>('default')
+  const [detailWidth, setDetailWidth] = useState(340)
+  const [draggingDetail, setDraggingDetail] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth > 992
+  )
 
   const { entity, label, setEntity, clearEntity } = useSelectedEntityStore()
   const [messageApi, contextHolder] = message.useMessage()
@@ -266,7 +273,7 @@ export const GraphPage: React.FC = () => {
   )
 
   const renderGraph = useCallback(
-    async (data: SubgraphResponse, centerBk: string) => {
+    async (data: SubgraphResponse) => {
       const graph = graphRef.current
       if (!graph) return
       const spec = buildGraphSpec(data, showEdgeLabels)
@@ -357,7 +364,7 @@ export const GraphPage: React.FC = () => {
         setCenterKey(nodeBusinessKey)
         centerBkRef.current = nodeBusinessKey
         clearEntity()
-        await renderGraph(data, nodeBusinessKey)
+        await renderGraph(data)
       } catch {
         messageApi.error(`未找到实体：${nodeLabel} / ${nodeBusinessKey}`)
         setSubgraph(null)
@@ -404,9 +411,38 @@ export const GraphPage: React.FC = () => {
 
   useEffect(() => {
     if (subgraph && centerKey) {
-      void renderGraph(subgraph, centerKey)
+      void renderGraph(subgraph)
     }
   }, [showEdgeLabels, subgraph, centerKey, renderGraph])
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth > 992)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!draggingDetail) return
+
+    const handleMove = (evt: MouseEvent) => {
+      const workspace = workspaceRef.current
+      if (!workspace || !isDesktop) return
+
+      const rect = workspace.getBoundingClientRect()
+      const next = Math.round(rect.right - evt.clientX)
+      const clamped = Math.max(280, Math.min(520, next))
+      setDetailWidth(clamped)
+    }
+
+    const handleUp = () => setDraggingDetail(false)
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [draggingDetail, isDesktop])
 
   const handleSearch = async () => {
     const bk = keyword.trim()
@@ -449,7 +485,10 @@ export const GraphPage: React.FC = () => {
         </div>
       </header>
 
-      <div className={styles.workspace}>
+      <div
+        ref={workspaceRef}
+        className={`${styles.workspace} ${draggingDetail ? styles.workspaceDragging : ''}`}
+      >
         <Card className={styles.graphCard} bordered={false}>
           <div className={styles.toolbar}>
             <div className={styles.toolbarRow}>
@@ -472,46 +511,65 @@ export const GraphPage: React.FC = () => {
                   allowClear
                   style={{ flex: 1, maxWidth: 320 }}
                 />
-                <Button type="primary" icon={<SearchOutlined />} onClick={() => void handleSearch()}>
+                <Button size="small" type="primary" icon={<SearchOutlined />} onClick={() => void handleSearch()}>
                   查询
                 </Button>
               </div>
-              <Tooltip title="显示关系标签（节点多时建议关闭）">
-                <Switch
-                  size="small"
-                  checked={showEdgeLabels}
-                  onChange={setShowEdgeLabels}
-                  checkedChildren="标签"
-                  unCheckedChildren="标签"
-                />
-              </Tooltip>
-              <Tooltip title="适应画布">
-                <Button size="small" icon={<ExpandOutlined />} onClick={() => graphRef.current?.fitView()} />
-              </Tooltip>
-              <Tooltip title="刷新子图">
-                <Button
-                  size="small"
-                  icon={<ReloadOutlined />}
-                  onClick={() => centerKey && void loadSubgraph(centerLabel, centerKey)}
-                  disabled={!centerKey}
-                />
-              </Tooltip>
-              <Tooltip title="清空">
-                <Button
-                  size="small"
-                  icon={<ClearOutlined />}
-                  onClick={() => {
-                    setKeyword('')
-                    setSubgraph(null)
-                    subgraphRef.current = null
-                    setCenterLabel('')
-                    setCenterKey('')
-                    clearEntity()
-                    graphRef.current?.setData({ nodes: [], edges: [] })
-                    void graphRef.current?.render()
-                  }}
-                />
-              </Tooltip>
+              <div className={styles.controlGroup}>
+                <Tooltip title="显示关系标签（节点多时建议关闭）">
+                  <Switch
+                    size="small"
+                    checked={showEdgeLabels}
+                    onChange={setShowEdgeLabels}
+                    checkedChildren="标签"
+                    unCheckedChildren="标签"
+                  />
+                </Tooltip>
+                <Tooltip title="适应画布">
+                  <Button size="small" icon={<ExpandOutlined />} onClick={() => graphRef.current?.fitView()} />
+                </Tooltip>
+                <Tooltip title="刷新子图">
+                  <Button
+                    size="small"
+                    icon={<ReloadOutlined />}
+                    onClick={() => centerKey && void loadSubgraph(centerLabel, centerKey)}
+                    disabled={!centerKey}
+                  />
+                </Tooltip>
+                <Tooltip title="清空">
+                  <Button
+                    size="small"
+                    icon={<ClearOutlined />}
+                    onClick={() => {
+                      setKeyword('')
+                      setSubgraph(null)
+                      subgraphRef.current = null
+                      setCenterLabel('')
+                      setCenterKey('')
+                      clearEntity()
+                      graphRef.current?.setData({ nodes: [], edges: [] })
+                      void graphRef.current?.render()
+                    }}
+                  />
+                </Tooltip>
+              </div>
+              <Segmented
+                size="small"
+                className={styles.detailSizeSwitch}
+                value={detailPanelSize}
+                onChange={(value) => {
+                  const next = value as 'compact' | 'default' | 'wide'
+                  setDetailPanelSize(next)
+                  if (next === 'compact') setDetailWidth(300)
+                  else if (next === 'wide') setDetailWidth(420)
+                  else setDetailWidth(340)
+                }}
+                options={[
+                  { value: 'compact', label: '详情窄' },
+                  { value: 'default', label: '详情中' },
+                  { value: 'wide', label: '详情宽' },
+                ]}
+              />
             </div>
             <div className={styles.legendRow}>
               {Object.entries(LABEL_COLORS)
@@ -546,6 +604,7 @@ export const GraphPage: React.FC = () => {
                       {centers.map((c) => (
                         <Button
                           key={c.business_key}
+                          size="small"
                           type="primary"
                           ghost
                           onClick={() => void loadSubgraph(c.label, c.business_key)}
@@ -593,8 +652,20 @@ export const GraphPage: React.FC = () => {
           )}
         </Card>
 
+        <button
+          type="button"
+          aria-label="调整详情面板宽度"
+          className={styles.resizeHandle}
+          onMouseDown={() => {
+            if (isDesktop) {
+              setDraggingDetail(true)
+            }
+          }}
+        />
+
         <Card
           className={styles.detailCard}
+          style={isDesktop ? { width: detailWidth } : undefined}
           title={
             <span>
               <NodeIndexOutlined style={{ marginRight: 8, color: '#14b8a6' }} />

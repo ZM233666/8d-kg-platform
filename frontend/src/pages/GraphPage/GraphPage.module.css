@@ -23,7 +23,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   gap: 12px;
 }
 
@@ -44,9 +44,14 @@
 
 .workspace {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex: 1;
   min-height: 0;
+}
+
+.workspaceDragging {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .graphCard {
@@ -71,7 +76,7 @@
 }
 
 .toolbar {
-  padding: 14px 16px 10px;
+  padding: 10px 12px 8px;
   background: linear-gradient(180deg, #fafbfc 0%, #f4f6f9 100%);
   border-bottom: 1px solid var(--panel-border);
 }
@@ -81,6 +86,17 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.controlGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 4px;
+}
+
+.detailSizeSwitch {
+  flex-shrink: 0;
 }
 
 .searchGroup {
@@ -95,8 +111,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px dashed #e2e8f0;
   overflow-x: auto;
   scrollbar-width: thin;
@@ -125,7 +141,7 @@
 .canvasWrap {
   flex: 1;
   position: relative;
-  min-height: 520px;
+  min-height: clamp(360px, 55vh, 720px);
   background-color: var(--graph-surface);
   background-image:
     linear-gradient(var(--graph-grid) 1px, transparent 1px),
@@ -170,7 +186,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  padding: 8px 12px;
   background: #f8fafc;
   border-top: 1px solid var(--panel-border);
   flex-wrap: wrap;
@@ -238,13 +254,39 @@
   align-self: stretch;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 140px);
+  max-height: calc(100vh - 132px);
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06) !important;
+}
+
+.resizeHandle {
+  width: 10px;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  margin: 4px -8px 4px -8px;
+  position: relative;
+}
+
+.resizeHandle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.resizeHandle:hover::before {
+  background: var(--graph-accent);
 }
 
 .detailCard :global(.ant-card-head) {
   border-bottom: 1px solid var(--panel-border);
-  min-height: 48px;
+  min-height: 44px;
 }
 
 .detailCard :global(.ant-card-body) {
@@ -377,4 +419,55 @@
   background: rgba(11, 16, 24, 0.55);
   z-index: 10;
   backdrop-filter: blur(2px);
+}
+
+@media (max-width: 1280px) {
+  .detailCard {
+    width: 300px;
+  }
+}
+
+@media (max-width: 992px) {
+  .workspace {
+    flex-direction: column;
+  }
+
+  .graphCard {
+    min-height: 58vh;
+  }
+
+  .detailCard {
+    width: 100%;
+    max-height: none;
+  }
+
+  .resizeHandle {
+    display: none;
+  }
+
+  .canvasWrap {
+    min-height: 52vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    margin-bottom: 10px;
+  }
+
+  .toolbar {
+    padding: 10px 10px 8px;
+  }
+
+  .searchGroup {
+    min-width: 0;
+  }
+
+  .detailSizeSwitch {
+    display: none;
+  }
+
+  .canvasWrap {
+    min-height: 48vh;
+  }
 }

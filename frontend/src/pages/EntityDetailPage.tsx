@@ -1,6 +1,6 @@
 /** 实体详情页 */
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Card,
@@ -13,7 +13,6 @@ import {
   Breadcrumb,
   Result,
   Divider,
-  Tooltip,
   Badge,
   Row,
   Col,
@@ -21,20 +20,16 @@ import {
 import {
   ArrowLeftOutlined,
   NodeIndexOutlined,
-  ShareAltOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  ClockCircleOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 
 import { PageSpin } from '../components/PageSpin'
 import { graphApi } from '../api'
 import { useSelectedEntityStore } from '../store'
-import { REVIEW_STATUS_OPTIONS, SENSITIVITY_OPTIONS, ENTITY_LABELS } from '../types'
+import { REVIEW_STATUS_OPTIONS, SENSITIVITY_OPTIONS } from '../types'
 import type { SubgraphNode, SubgraphRelationship, SubgraphResponse } from '../types'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const LABEL_COLORS: Record<string, string> = {
   EightDReport: '#1677ff',
@@ -89,12 +84,7 @@ export const EntityDetailPage: React.FC = () => {
   const [node, setNode] = useState<EntityNode | null>(null)
   const [subgraph, setSubgraph] = useState<SubgraphResponse | null>(null)
 
-  useEffect(() => {
-    if (!label || !businessKey) return
-    loadEntity()
-  }, [label, businessKey])
-
-  const loadEntity = async () => {
+  const loadEntity = useCallback(async () => {
     if (!label || !businessKey) return
     setLoading(true)
     setError(null)
@@ -118,7 +108,15 @@ export const EntityDetailPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [label, businessKey, setEntity])
+
+  useEffect(() => {
+    if (!label || !businessKey) return
+    const timer = window.setTimeout(() => {
+      void loadEntity()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [label, businessKey, loadEntity])
 
   // 邻居关系
   const relationships: SubgraphRelationship[] = subgraph?.relationships ?? []

@@ -1,23 +1,31 @@
 /** 文档列表页（占位） */
 
 import React from 'react'
-import { Card, Typography, Space, Table, Tag, Button, message } from 'antd'
-import { DeleteOutlined, UploadOutlined } from '@ant-design/icons'
+import { Card, Typography, Space, Table, Tag, Button, message, Grid, Empty } from 'antd'
+import { DeleteOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useNavigate } from 'react-router-dom'
 
 import { uploadApi, taskApi } from '../api'
 import { useTaskStore } from '../store'
 import type { DocumentResponse } from '../types'
+import styles from './DocumentListPage.module.css'
 
 const { Text } = Typography
+const STATUS_META: Record<string, { color: string; text: string }> = {
+  uploaded: { color: 'processing', text: '已上传' },
+  extracted: { color: 'success', text: '已抽取' },
+  failed: { color: 'error', text: '失败' },
+}
 
 export const DocumentListPage: React.FC = () => {
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
   const [messageApi, contextHolder] = message.useMessage()
   const [data, setData] = React.useState<DocumentResponse[]>([])
   const [loading, setLoading] = React.useState(false)
   const addTask = useTaskStore((s) => s.addTask)
+  const isMobile = !screens.md
 
   const loadData = React.useCallback(async () => {
     setLoading(true)
@@ -82,6 +90,7 @@ export const DocumentListPage: React.FC = () => {
       dataIndex: 'file_size',
       key: 'file_size',
       width: 100,
+      responsive: ['sm'],
       render: (v: number) => v < 1024 * 1024 ? `${(v / 1024).toFixed(1)} KB` : `${(v / 1024 / 1024).toFixed(1)} MB`,
     },
     {
@@ -89,8 +98,9 @@ export const DocumentListPage: React.FC = () => {
       dataIndex: 'mime_type',
       key: 'mime_type',
       width: 80,
+      responsive: ['md'],
       render: (v: string) => (
-        <Tag>
+        <Tag color={v.includes('word') || v.includes('officedocument.wordprocessingml') ? 'blue' : 'default'}>
           {v.includes('word') || v.includes('officedocument.wordprocessingml')
             ? 'Word'
             : '未知'}
@@ -102,13 +112,18 @@ export const DocumentListPage: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 90,
-      render: (v: string) => <Tag color={v === 'extracted' ? 'green' : 'default'}>{v}</Tag>,
+      responsive: ['sm'],
+      render: (v: string) => {
+        const meta = STATUS_META[v] ?? { color: 'default', text: v || '未知' }
+        return <Tag color={meta.color}>{meta.text}</Tag>
+      },
     },
     {
       title: '上传时间',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
+      responsive: ['lg'],
       render: (v: string) => new Date(v).toLocaleString('zh-CN'),
     },
     {
@@ -116,6 +131,7 @@ export const DocumentListPage: React.FC = () => {
       dataIndex: 'sha256',
       key: 'sha256',
       ellipsis: true,
+      responsive: ['xl'],
       render: (v: string) => <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>{v.slice(0, 12)}...</Text>,
     },
     {
@@ -124,7 +140,7 @@ export const DocumentListPage: React.FC = () => {
       width: 140,
       render: (_, record) => (
         <Space>
-          <Button size="small" type="primary" onClick={() => handleExtract(record)}>
+          <Button size={isMobile ? 'small' : 'middle'} type="primary" onClick={() => handleExtract(record)}>
             抽取
           </Button>
           <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
@@ -134,19 +150,50 @@ export const DocumentListPage: React.FC = () => {
   ]
 
   return (
-    <div>
+    <div className={styles.page}>
       {contextHolder}
+      <header className={styles.header}>
+        <div>
+          <Typography.Title level={3} className={styles.title}>
+            文档列表
+          </Typography.Title>
+          <p className={styles.subtitle}>集中管理已上传文档，并可一键触发抽取任务</p>
+        </div>
+      </header>
       <Card
-        title="文档列表"
-        extra={<Button type="primary" icon={<UploadOutlined />} onClick={() => navigate('/upload')}>上传</Button>}
-        style={{ borderRadius: 8 }}
+        className={styles.card}
+        title={
+          <Space size={8}>
+            <FileTextOutlined style={{ color: '#1677ff' }} />
+            <span>文档管理</span>
+          </Space>
+        }
+        extra={
+          <Button
+            size={isMobile ? 'small' : 'middle'}
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={() => navigate('/upload')}
+          >
+            上传文档
+          </Button>
+        }
       >
         <Table
+          className={styles.table}
+          size={isMobile ? 'small' : 'middle'}
           columns={columns}
           dataSource={data}
           rowKey="id"
           loading={loading}
-          pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 条` }}
+          scroll={{ x: 1000 }}
+          pagination={{
+            pageSize: 20,
+            showTotal: (t) => `共 ${t} 条`,
+            simple: isMobile,
+            size: isMobile ? 'small' : 'default',
+          }}
+          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无文档" /> }}
         />
       </Card>
     </div>

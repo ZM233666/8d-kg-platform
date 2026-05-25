@@ -1,7 +1,18 @@
 /** MainLayout 主布局组件 */
 
 import React, { useState } from 'react'
-import { Layout, Menu, Avatar, Dropdown, Space, Typography, Badge, theme as antTheme } from 'antd'
+import {
+  Layout,
+  Menu,
+  Avatar,
+  Dropdown,
+  Space,
+  Typography,
+  Badge,
+  Drawer,
+  Grid,
+  Button,
+} from 'antd'
 import {
   DashboardOutlined,
   UploadOutlined,
@@ -117,16 +128,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onMenuSelect,
 }) => {
   const [internalCollapsed, setInternalCollapsed] = useState(false)
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const collapsed = externalCollapsed !== undefined ? externalCollapsed : internalCollapsed
 
   const { user, logout } = useUserStore()
   const { mode } = useThemeStore()
   const { taskCount } = useTaskStore()
+  const screens = Grid.useBreakpoint()
 
   const isDark = mode === 'dark'
-  const token = antTheme.useToken()
+  const isMobile = !screens.lg
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (isMobile) {
+      setMobileDrawerOpen(false)
+    }
     onMenuSelect?.(key)
   }
 
@@ -139,24 +155,25 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const totalPending = taskCount.pending + taskCount.running
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100dvh', width: '100%' }}>
       {/* 侧边栏 */}
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        trigger={null}
-        width={220}
-        style={{
-          background: isDark ? '#141414' : '#001529',
-          position: 'fixed',
-          height: '100vh',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 100,
-          overflow: 'auto',
-        }}
-      >
+      {!isMobile && (
+        <Sider
+          collapsible
+          collapsed={collapsed}
+          trigger={null}
+          width={220}
+          style={{
+            background: isDark ? '#141414' : '#001529',
+            position: 'fixed',
+            height: '100dvh',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 100,
+            overflow: 'auto',
+          }}
+        >
         {/* Logo 区域 */}
         <div
           style={{
@@ -211,10 +228,52 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         >
           {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
         </div>
-      </Sider>
+        </Sider>
+      )}
+
+      {isMobile && (
+        <Drawer
+          title={null}
+          placement="left"
+          width={220}
+          open={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+          bodyStyle={{ padding: 0, background: isDark ? '#141414' : '#001529' }}
+          headerStyle={{ display: 'none' }}
+        >
+          <div
+            style={{
+              height: 64,
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 16px',
+              borderBottom: `1px solid ${isDark ? '#303030' : '#ffffff18'}`,
+            }}
+          >
+            <Space direction="horizontal" align="center">
+              <span style={{ color: '#1677ff', fontSize: 22, fontWeight: 'bold' }}>8D</span>
+              <span style={{ color: '#fff', fontSize: 13 }}>KG Platform</span>
+            </Space>
+          </div>
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[activePath]}
+            items={filteredMenuItems(user)}
+            onClick={handleMenuClick}
+            style={{ borderRight: 0, marginTop: 8 }}
+          />
+        </Drawer>
+      )}
 
       {/* 右侧主区域 */}
-      <Layout style={{ marginLeft: collapsed ? 80 : 220, transition: 'margin-left 0.2s' }}>
+      <Layout
+        style={{
+          marginLeft: isMobile ? 0 : collapsed ? 80 : 220,
+          transition: 'margin-left 0.2s',
+          minWidth: 0,
+        }}
+      >
         {/* 顶部导航栏 */}
         <Header
           style={{
@@ -232,6 +291,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         >
           {/* 左侧：面包屑 / 页面标题 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isMobile && (
+              <Button
+                type="text"
+                icon={<MenuUnfoldOutlined />}
+                onClick={() => setMobileDrawerOpen(true)}
+              />
+            )}
             <Text strong style={{ fontSize: 16 }}>
               {menuItems.find((m) => 'key' in m && m.key === activePath)?.label as string || '8D 知识图谱'}
             </Text>
@@ -262,7 +328,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </Header>
 
         {/* 内容区 */}
-        <Content style={{ padding: 24, minHeight: 'calc(100vh - 64px)' }}>
+        <Content style={{ padding: isMobile ? 12 : 16, minHeight: 'calc(100dvh - 64px)' }}>
           {children}
         </Content>
       </Layout>

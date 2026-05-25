@@ -1,0 +1,43 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0 !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.card {
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.table :global(.ant-table-thead > tr > th) {
+  font-size: 12px;
+}
+
+.table :global(.ant-table-tbody > tr > td) {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+@media (max-width: 640px) {
+  .header {
+    align-items: flex-start;
+  }
+}
