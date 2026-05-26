@@ -1,14 +1,14 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
 }
 
 .header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -19,9 +19,9 @@
 }
 
 .subtitle {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .updatedAt {
@@ -31,19 +31,19 @@
 .warnBanner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: 6px;
+  padding: 8px 12px;
   border-radius: 10px;
   background: #fff7ed;
   border: 1px solid #fed7aa;
   color: #9a3412;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .kpiCard {
@@ -59,7 +59,7 @@
 }
 
 .kpiCard :global(.ant-statistic-content-value) {
-  font-size: 28px !important;
+  font-size: 24px !important;
   font-weight: 700;
   color: #0f172a;
 }
@@ -82,7 +82,7 @@
 
 .kpiSuffix {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   font-size: 11px;
   color: #94a3b8;
   font-weight: 400;
@@ -91,15 +91,15 @@
 .healthRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: stretch;
 }
 
 .healthPill {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   background: #fff;
@@ -116,7 +116,7 @@
 }
 
 .healthIcon {
-  font-size: 18px;
+  font-size: 16px;
   color: #64748b;
 }
 
@@ -136,11 +136,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 16px;
+  padding: 0 12px;
   border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
-  min-width: 160px;
+  min-width: 140px;
 }
 
 .healthSummaryOk {
@@ -155,49 +155,136 @@
   border: 1px solid #fde68a;
 }
 
-.mainGrid {
-  margin-top: 0 !important;
+/* 四宫格：上行随图谱分布完整展示对齐高度，下行紧凑 */
+.modulesGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  grid-template-rows: auto auto;
+  gap: 10px;
+  align-items: start;
 }
 
 .panelCard {
   border-radius: 12px !important;
   border: 1px solid #e2e8f0 !important;
-  height: 100%;
+  align-self: start;
 }
 
-.panelCardGap {
-  margin-top: 12px;
+.panelCardTop {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panelCardTop :global(.ant-card-body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panelCardBottom {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panelCardBottom :global(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+}
+
+.panelCard :global(.ant-card-head) {
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.panelCard :global(.ant-card-head-title) {
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.panelCard :global(.ant-card-body) {
+  padding: 10px 12px 12px;
+}
+
+/* 下图模块：内容多时在内部滚动 */
+.moduleScroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+.moduleScrollBottom {
+  max-height: min(168px, 24vh);
+}
+
+/* 上图模块：高度以右侧图谱分布完整展示为准 */
+.moduleGraphBody {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.moduleScrollTop {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.moduleScroll :global(.ant-table-wrapper) {
+  margin-bottom: 0;
+}
+
+.moduleScroll :global(.ant-table) {
+  margin-bottom: 0;
 }
 
 .taskSummary {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
+}
+
+.barSection + .barSection {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.barSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 6px;
 }
 
 .barList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .barRow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .barMeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 12px;
+  line-height: 1.3;
 }
 
 .barDot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -215,15 +302,15 @@
 .reportList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .reportItem {
   width: 100%;
   text-align: left;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 8px;
+  padding: 8px 10px;
   background: #fff;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
@@ -235,10 +322,11 @@
 }
 
 .reportTitle {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #0f172a;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  line-height: 1.35;
 }
 
 .reportMeta {
@@ -259,7 +347,7 @@
 .quickGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .quickBtn {
@@ -267,10 +355,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px 10px;
+  gap: 4px;
+  padding: 8px 6px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f8fafc;
   color: #334155;
   font-size: 12px;
@@ -279,7 +367,7 @@
 }
 
 .quickBtn :global(.anticon) {
-  font-size: 20px;
+  font-size: 16px;
   color: #14b8a6;
 }
 
@@ -300,7 +388,11 @@
 
   .healthSummary {
     grid-column: 1 / -1;
-    min-height: 40px;
+    min-height: 36px;
+  }
+
+  .modulesGrid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -311,5 +403,9 @@
 
   .healthRow {
     grid-template-columns: 1fr;
+  }
+
+  .moduleScroll {
+    max-height: min(180px, 32vh);
   }
 }
