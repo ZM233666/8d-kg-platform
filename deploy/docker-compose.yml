@@ -1,0 +1,223 @@
+# 8D KG 全栈部署（在仓库根目录执行）
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#
+# 分阶段：
+#   仅 Codex POC:  up -d codex
+#   仅基础设施:    up -d postgres neo4j redis minio && run --rm migrate
+#   应用层:        up -d codex app-api app-worker
+
+name: 8dkg
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: 8dkg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kguser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-kg}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kguser} -d ${POSTGRES_DB:-kg}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - 8dkg
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: 8dkg-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
+    networks:
+      - 8dkg
+
+  redis:
+    image: redis:7-alpine
+    container_name: 8dkg-redis
+    restart: unless-stopped
+    command: >
+      sh -c 'redis-server --requirepass "$${REDIS_PASSWORD}"'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - 8dkg
+
+  minio:
+    image: minio/minio:latest
+    container_name: 8dkg-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-kgadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?set MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - 8dkg
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.app
+    image: 8dkg-app:local
+    container_name: 8dkg-migrate
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/backend
+    volumes:
+      - ./.env:/app/.env:ro
+    working_dir: /app/backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - 8dkg
+    restart: "no"
+
+  codex:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.codex
+    image: 8dkg-codex:local
+    container_name: 8dkg-codex
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CODEX_EXEC_WORKDIR: /app
+    volumes:
+      - ./.env:/app/.env:ro
+      # 开发调试可挂载源码（可选，取消注释）:
+      # - ..:/app:ro
+    ports:
+      - "${CODEX_HOST_PORT:-8787}:8787"
+    networks:
+      - 8dkg
+
+  app-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.app
+    image: 8dkg-app:local
+    container_name: 8dkg-app-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/.env:ro
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      codex:
+        condition: service_started
+    networks:
+      - 8dkg
+
+  app-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.app
+    image: 8dkg-app:local
+    container_name: 8dkg-app-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/.env:ro
+    command:
+      [
+        "celery",
+        "-A",
+        "app.tasks.celery_app",
+        "worker",
+        "-l",
+        "info",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      codex:
+        condition: service_started
+    networks:
+      - 8dkg
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    image: 8dkg-frontend:local
+    container_name: 8dkg-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_HOST_PORT:-80}:80"
+    depends_on:
+      - app-api
+    networks:
+      - 8dkg
+
+networks:
+  8dkg:
+    name: 8dkg-net
+
+volumes:
+  pg_data:
+    name: 8dkg_pg_data
+  neo4j_data:
+    name: 8dkg_neo4j_data
+  neo4j_logs:
+    name: 8dkg_neo4j_logs
+  redis_data:
+    name: 8dkg_redis_data
+  minio_data:
+    name: 8dkg_minio_data

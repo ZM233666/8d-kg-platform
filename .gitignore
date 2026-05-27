@@ -1,6 +1,7 @@
 
 __pycache__/
 !.env.example
+!deploy/.env.example
 .coverage
 .DS_Store
 .env
