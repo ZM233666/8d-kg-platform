@@ -9,8 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.base import BaseNode, BaseEvent
-
+from app.schemas.base import BaseEvent, BaseNode
 
 # ──────────────────────────────────────────────────────────────
 # 枚举统一定义
@@ -64,6 +63,7 @@ ChunkRole = Literal[
 # ──────────────────────────────────────────────────────────────
 # 核心层 EntityType（§3）
 # ──────────────────────────────────────────────────────────────
+
 
 class EightDReport(BaseNode):
     """8D 报告主体。业务键：report_id。"""
@@ -119,7 +119,9 @@ class Part(BaseNode):
 
     part_no: str = Field(..., description="克诺尔部件号，如 'G7029/SMF01'")
     part_name: str = Field(..., description="中文名，如 'EP2002阀'")
-    serial_numbers: list[str] = Field(default_factory=list, description="v0.1 临时序列号列表；v0.2 拆分为 PartInstance")
+    serial_numbers: list[str] = Field(
+        default_factory=list, description="v0.1 临时序列号列表；v0.2 拆分为 PartInstance"
+    )
     batch_numbers: list[str] = Field(default_factory=list, description="批次号列表")
     parent_part_no: str | None = Field(None, description="父部件号")
     operating_mileage_km: float | None = Field(None, description="操作里程（km）")
@@ -180,6 +182,7 @@ class Equipment(BaseNode):
 # 次要层 EntityType（§3，仅 BaseNode + 业务键，TODO: v0.2 补充字段）
 # ──────────────────────────────────────────────────────────────
 
+
 class Vehicle(BaseNode):
     """车辆。业务键：vehicle_no + project_no（复合键）。"""
 
@@ -228,6 +231,7 @@ class Supplier(BaseNode):
 # ──────────────────────────────────────────────────────────────
 # 核心层 EventType（§4）
 # ──────────────────────────────────────────────────────────────
+
 
 class DefectOccurrence(BaseEvent):
     """故障发生事件。业务键：report_id + vehicle_no + occurred_at。"""
@@ -307,6 +311,7 @@ class ClosureEvent(BaseEvent):
 # 辅助类型（§6）
 # ──────────────────────────────────────────────────────────────
 
+
 class Measurement(BaseNode):
     """测量值（三元组扩展）。业务键：inspection_event_id + quantity + sample_id。"""
 
@@ -374,6 +379,7 @@ class RiskAssessment(BaseNode):
 # ──────────────────────────────────────────────────────────────
 # 独立模型（不继承 BaseNode）
 # ──────────────────────────────────────────────────────────────
+
 
 class Chunk(BaseModel):
     """原文片段（SCHEMA.md §6.5），不继承 BaseNode。"""

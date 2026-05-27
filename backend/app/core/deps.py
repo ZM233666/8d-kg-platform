@@ -10,12 +10,10 @@ from neo4j import AsyncDriver
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.db.minio import minio_client
-from app.db.redis import redis_client
-from app.db.postgres import get_db_session
 from app.db.neo4j import get_neo4j_driver as _get_neo4j_driver
-
+from app.db.postgres import get_db_session
+from app.db.redis import redis_client
 
 # 直接 re-export，给 FastAPI Depends 使用
 DBSession = Annotated[AsyncSession, Depends(get_db_session)]
@@ -52,7 +50,7 @@ class _PlaceholderUser:
 
 async def get_current_user(
     request: Request,
-) -> _PlaceholderUser:  # noqa: ARG001
+) -> _PlaceholderUser:
     """
     v0.1：从请求头解析当前用户（占位实现）。
 

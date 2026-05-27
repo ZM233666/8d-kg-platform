@@ -762,7 +762,7 @@ async def test_s4_extract_syncs_ctx_chunks_after_unknown_report_resolution(
     ctx = await s4_extract.run(_build_unknown_chunk_ctx())
 
     assert ctx.extraction_result is not None
-    assert ctx.chunks[0].chunk_id == "FS-UNKNOWN#full_document#0"
-    assert ctx.chunks[0].report_id == "FS-UNKNOWN"
+    assert ctx.chunks[0].chunk_id == "UNKNOWN#full_document#0"
+    assert ctx.chunks[0].report_id == "UNKNOWN"
     assert ctx.extraction_result.report is not None
-    assert ctx.extraction_result.report.business_key == "FS-UNKNOWN"
+    assert ctx.extraction_result.report.business_key == "UNKNOWN"

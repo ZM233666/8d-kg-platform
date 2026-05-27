@@ -54,9 +54,7 @@ def build_llm_client(provider: str) -> LLMClient:
             timeout_seconds=settings.litellm_timeout_seconds,
             max_retries=settings.litellm_max_retries,
         )
-    raise LLMError(
-        f"未知 llm_provider: {provider_normalized!r} (支持: mock / codex / litellm)"
-    )
+    raise LLMError(f"未知 llm_provider: {provider_normalized!r} (支持: mock / codex / litellm)")
 
 
 def get_llm_client() -> LLMClient:

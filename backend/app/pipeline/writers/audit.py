@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-import structlog
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+import structlog
 
 from app.db.postgres import async_session_maker
 from app.models import AuditLog
@@ -32,9 +33,7 @@ async def write_audit(
     summary: dict,
 ) -> None:
     """向 audit_logs 写入一条 pipeline_completed 记录。"""
-    serializable = json.loads(
-        json.dumps(summary, cls=_UUIDEncoder)
-    )
+    serializable = json.loads(json.dumps(summary, cls=_UUIDEncoder))
     async with async_session_maker() as session:
         record = AuditLog(
             user_id=None,  # v0.1 无真实用户

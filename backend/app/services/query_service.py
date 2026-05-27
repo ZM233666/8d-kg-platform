@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from neo4j import AsyncDriver
@@ -238,7 +238,7 @@ async def search_entities_neo4j(
         rows = [dict(r) async for r in result]
 
     items: list[dict] = []
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     for row in rows:
         props = dict(row.get("props") or {})
         content = _pick_content(props)
@@ -278,7 +278,7 @@ async def search_chunks_pg(
     chunks = result.scalars().all()
 
     tokens = _tokenize(query)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     items: list[dict] = []
     for c in chunks:
         text = (c.text or "")[:500]

@@ -6,11 +6,10 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
+import structlog
 from minio import Minio
-from minio.error import S3Error
 
 from app.core.config import settings
-import structlog
 
 logger = structlog.get_logger(__name__)
 

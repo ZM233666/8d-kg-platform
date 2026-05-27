@@ -132,9 +132,7 @@ async def write_pg(ctx: PipelineContext) -> dict:
 
         if chunk_rows:
             # 同一源文件会按 sha256 复用 document_id；重抽时先刷新该文档的 chunk 镜像。
-            await session.execute(
-                delete(Chunk).where(Chunk.document_id == effective_document_id)
-            )
+            await session.execute(delete(Chunk).where(Chunk.document_id == effective_document_id))
             chunks_stmt = pg_insert(Chunk).values(chunk_rows)
             chunks_stmt = chunks_stmt.on_conflict_do_nothing()
             await session.execute(chunks_stmt)

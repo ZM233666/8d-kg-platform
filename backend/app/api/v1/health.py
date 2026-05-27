@@ -2,16 +2,15 @@
 
 import asyncio
 
-from fastapi import APIRouter, status, Response
+import redis.asyncio as aioredis
+import structlog
+from fastapi import APIRouter, Response, status
 from sqlalchemy import text
 
-from app.db.postgres import async_session_maker
-from app.db.neo4j import get_neo4j_driver
-from app.services.minio_client import get_minio_client
 from app.core.config import settings
-import structlog
-
-import redis.asyncio as aioredis
+from app.db.neo4j import get_neo4j_driver
+from app.db.postgres import async_session_maker
+from app.services.minio_client import get_minio_client
 
 logger = structlog.get_logger(__name__)
 
@@ -75,10 +74,11 @@ async def health(response: Response) -> dict[str, str]:
     并行健康检查四件套。
     全部 ok → 200，任一 fail → 503。
     """
+
     async def _with_timeout(coro, name):
         try:
             return await asyncio.wait_for(coro, timeout=2.0)
-        except (Exception, asyncio.CancelledError, asyncio.TimeoutError) as e:
+        except (TimeoutError, Exception, asyncio.CancelledError) as e:
             # 捕获一切：TimeoutError / CancelledError / 业务异常
             logger.warning(f"health_{name}_failed", error=str(e))
             return f"fail:{e}"

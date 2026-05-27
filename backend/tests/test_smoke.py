@@ -1,7 +1,5 @@
 """冒烟测试：验证配置加载、模块导入、Base.metadata 表完整性。"""
 
-import pytest
-
 from app.core.config import settings
 
 

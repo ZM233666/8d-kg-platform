@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -35,7 +35,7 @@ async def assert_run_not_cancelled(extraction_run_id: UUID) -> None:
 
 async def mark_run_cancelled(db: AsyncSession, run: ExtractionRun) -> ExtractionRun:
     """将 run 标记为用户取消（status=failed + error_detail.cancelled）。"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     run.status = "failed"
     run.finished_at = now
     run.error_detail = {
@@ -54,7 +54,7 @@ def mark_run_running_sync(extraction_run_id: UUID, *, stage: str = "pipeline") -
 
     from app.core.config import settings
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     engine = create_engine(settings.alembic_database_url, future=True)
     with Session(engine) as session:
         run = session.get(ExtractionRun, extraction_run_id)

@@ -1,9 +1,10 @@
 """Lexicon 模块：加载领域词典。"""
 
-import yaml
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 LEXICON_PATH = Path(__file__).parent / "domain_lexicon.yaml"
 
@@ -23,4 +24,4 @@ def reload_lexicon() -> dict[str, Any]:
     return load_lexicon()
 
 
-__all__ = ["load_lexicon", "reload_lexicon", "LEXICON_PATH"]
+__all__ = ["LEXICON_PATH", "load_lexicon", "reload_lexicon"]

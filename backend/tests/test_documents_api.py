@@ -59,9 +59,7 @@ def _build_test_client(fake_db: _FakeSession) -> TestClient:
 def test_upload_accepts_legacy_doc_with_octet_stream(monkeypatch) -> None:
     fake_db = _FakeSession()
 
-    async def _fake_upload_bytes(
-        bucket: str, key: str, data: bytes, content_type: str
-    ) -> str:
+    async def _fake_upload_bytes(bucket: str, key: str, data: bytes, content_type: str) -> str:
         assert bucket == "kg-documents"
         assert key.endswith(".doc")
         assert data == _DOC_MAGIC

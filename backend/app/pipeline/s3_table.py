@@ -16,7 +16,6 @@ def _classify_table(headers: list[str], patterns: dict) -> str:
     if not headers:
         return "unknown"
 
-    header_set = {h.strip().upper() for h in headers}
     best_type: str | None = None
     best_score = -1
 

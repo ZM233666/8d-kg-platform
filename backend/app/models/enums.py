@@ -5,6 +5,7 @@ from enum import Enum
 
 class DocumentStatus(str, Enum):
     """Document.status 取值。"""
+
     UPLOADED = "uploaded"
     PARSING = "parsing"
     EXTRACTED = "extracted"
@@ -14,12 +15,14 @@ class DocumentStatus(str, Enum):
 
 class UserRole(str, Enum):
     """User.role 取值。"""
+
     ADMIN = "admin"
     OPERATOR = "operator"
 
 
 class ExtractionRunStatus(str, Enum):
     """ExtractionRun.status 取值。"""
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCEEDED = "succeeded"

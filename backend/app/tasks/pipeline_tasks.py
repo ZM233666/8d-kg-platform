@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
@@ -92,6 +92,7 @@ async def _run_pipeline_async(
     await assert_run_not_cancelled(extraction_run_id)
 
     from sqlalchemy import select
+
     from app.db.postgres import async_session_maker
     from app.models.document import Document
     from app.pipeline.base import run_pipeline
@@ -129,9 +130,8 @@ async def _run_pipeline_async(
     }
 
 
-
-
 from sqlalchemy import create_engine, update
+
 from app.models.extraction_run import ExtractionRun
 
 
@@ -145,7 +145,7 @@ def _mark_run_failed_sync(extraction_run_id, error: str) -> None:
             .where(ExtractionRun.id == extraction_run_id)
             .values(
                 status="failed",
-                finished_at=datetime.now(timezone.utc),
+                finished_at=datetime.now(UTC),
                 error_detail={"error": error[:2000]},
             )
         )

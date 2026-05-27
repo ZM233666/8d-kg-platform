@@ -1,8 +1,8 @@
 """FastAPI 应用入口：lifespan / 路由注册 / 异常处理。"""
 
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,13 +10,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import v1_router
 from app.core.config import settings
-from app.llm import effective_llm_model
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import get_logger, setup_logging
 from app.db.minio import ensure_minio_bucket, ping_minio
-from app.db.neo4j import close_neo4j_driver, get_neo4j_driver, ping_neo4j
+from app.db.neo4j import close_neo4j_driver, ping_neo4j
 from app.db.postgres import async_engine
 from app.db.redis import close_redis_client, ping_redis
+from app.llm import effective_llm_model
 
 log = get_logger(__name__)
 

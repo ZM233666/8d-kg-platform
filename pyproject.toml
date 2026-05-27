@@ -67,10 +67,27 @@ select = [
 ignore = [
     "E501",
     "S101",
+    # 中文注释/字符串中的全角标点，业务代码 intentionally 保留
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106"]
+"backend/tests/**" = ["S101", "S105", "S106", "SIM117", "RUF043"]
+"backend/app/api/**" = ["B008"]
+"backend/app/core/config.py" = ["S105"]
+"backend/app/core/exceptions.py" = ["N818"]
+"backend/app/models/**" = ["RUF012", "UP042"]
+"backend/app/services/doc_converter.py" = ["S603"]
+"backend/app/pipeline/writers/pg_writer.py" = ["ASYNC240"]
+"backend/app/services/minio_client.py" = ["ASYNC240", "SIM115"]
+"backend/app/tasks/pipeline_tasks.py" = ["E402"]
+"backend/alembic/**" = ["W291"]
+"backend/app/core/logging.py" = ["RUF005"]
+"backend/app/pipeline/s3_table.py" = ["RUF005"]
+"backend/app/pipeline/relationship_builder.py" = ["SIM103"]
+"backend/app/schemas/__init__.py" = ["RUF022"]
 
 [tool.ruff.format]
 quote-style = "double"

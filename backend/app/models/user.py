@@ -1,9 +1,6 @@
 """User 模型（v0.1 占位）。"""
 
-from datetime import datetime
-from uuid import UUID
-
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDPKMixin

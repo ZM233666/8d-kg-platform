@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import update
@@ -30,7 +30,7 @@ async def _update_run_status(
 ) -> None:
     """更新 extraction_runs 的状态（在新 session 中）。"""
     async with async_session_maker() as session:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         upd: dict = {"status": status, "finished_at": now}
         if stats:
             upd["stage_metrics"] = stats

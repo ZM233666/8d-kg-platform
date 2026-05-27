@@ -1,6 +1,5 @@
 """Neo4j 客户端：包装 AsyncDriver，提供幂等写入接口。"""
 
-
 from neo4j import AsyncDriver
 
 ALLOWED_LABELS: set[str] = {

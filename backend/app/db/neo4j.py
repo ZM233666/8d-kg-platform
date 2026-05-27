@@ -1,7 +1,8 @@
 """Neo4j async driver（按 event loop 缓存）。"""
 
 import asyncio
-from neo4j import AsyncGraphDatabase, AsyncDriver
+
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from app.core.config import settings
 from app.core.logging import get_logger

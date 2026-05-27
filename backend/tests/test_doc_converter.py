@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from app.services.doc_converter import convert_legacy_doc_to_docx, open_as_docx
 from app.services.doc_format import sniff_word_format
 

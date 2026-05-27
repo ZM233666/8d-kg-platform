@@ -1,7 +1,5 @@
 """业务异常基类 + FastAPI 全局异常处理器。"""
 
-from typing import Any
-
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -85,7 +83,9 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "code": exc.code,
                     "message": exc.message,
                     "details": exc.details,
-                    "trace_id": request.state.trace_id if hasattr(request.state, "trace_id") else None,
+                    "trace_id": request.state.trace_id
+                    if hasattr(request.state, "trace_id")
+                    else None,
                 }
             },
         )
@@ -100,7 +100,9 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "code": "INTERNAL_ERROR",
                     "message": "An internal error occurred",
                     "details": {},
-                    "trace_id": request.state.trace_id if hasattr(request.state, "trace_id") else None,
+                    "trace_id": request.state.trace_id
+                    if hasattr(request.state, "trace_id")
+                    else None,
                 }
             },
         )

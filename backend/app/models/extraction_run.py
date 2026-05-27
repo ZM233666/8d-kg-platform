@@ -67,6 +67,4 @@ class ExtractionRun(Base, UUIDPKMixin, TimestampMixin):
     # trace_id（关联日志链路）
     trace_id: Mapped[UUID | None] = mapped_column(nullable=True)
 
-    __table_args__ = (
-        Index("ix_extraction_runs_document_started", "document_id", "started_at"),
-    )
+    __table_args__ = (Index("ix_extraction_runs_document_started", "document_id", "started_at"),)

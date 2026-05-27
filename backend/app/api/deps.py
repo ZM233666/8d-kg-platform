@@ -1,15 +1,14 @@
 """FastAPI 依赖：db session、neo4j driver、minio client。"""
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
-from fastapi import Depends
+from minio import Minio
 from neo4j import AsyncDriver
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.postgres import async_session_maker
 from app.db.neo4j import get_neo4j_driver
+from app.db.postgres import async_session_maker
 from app.services.minio_client import get_minio_client
-from minio import Minio
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

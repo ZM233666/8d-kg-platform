@@ -91,9 +91,7 @@ class LiteLLMClient:
             data = json.loads(content)
         except json.JSONDecodeError as e:
             preview = content[:500]
-            raise LLMError(
-                f"LiteLLM 返回非合法 JSON: {e}; content preview: {preview!r}"
-            ) from e
+            raise LLMError(f"LiteLLM 返回非合法 JSON: {e}; content preview: {preview!r}") from e
 
         data = _drop_null_fields(data)
         data = _coerce_types(data)
@@ -150,7 +148,9 @@ class LiteLLMClient:
                         wait_seconds=wait,
                         body_preview=response.text[:300],
                     )
-                    last_err = LLMError(f"LiteLLM HTTP {response.status_code}: {response.text[:300]}")
+                    last_err = LLMError(
+                        f"LiteLLM HTTP {response.status_code}: {response.text[:300]}"
+                    )
                     if attempt < self.max_retries:
                         await asyncio.sleep(wait)
                     continue

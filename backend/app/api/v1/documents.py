@@ -1,7 +1,7 @@
 """Document 上传 / 查询端点。"""
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -56,7 +56,7 @@ async def upload_document(
 
     # 不命中：上传 MinIO
     document_id = uuid4()
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    today = datetime.now(UTC).strftime("%Y%m%d")
     object_key = f"uploads/{today}/{document_id}/{file.filename}"
     await upload_bytes("kg-documents", object_key, data, normalized_content_type)
     minio_url = f"minio://kg-documents/{object_key}"
@@ -119,10 +119,7 @@ async def list_documents(
     total = total_result.scalar_one()
 
     items_result = await db.execute(
-        select(Document)
-        .order_by(Document.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+        select(Document).order_by(Document.created_at.desc()).offset(offset).limit(limit)
     )
     items = [DocumentResponse.model_validate(doc) for doc in items_result.scalars().all()]
 

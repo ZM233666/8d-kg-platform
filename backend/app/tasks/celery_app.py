@@ -19,11 +19,11 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     # 任务执行
-    task_acks_late=True,          # worker 崩溃时任务重新入队
+    task_acks_late=True,  # worker 崩溃时任务重新入队
     task_reject_on_worker_lost=True,
-    worker_prefetch_multiplier=1, # 一次只拿 1 个，避免长任务卡死预取队列
+    worker_prefetch_multiplier=1,  # 一次只拿 1 个，避免长任务卡死预取队列
     # 结果保留时间
-    result_expires=3600 * 24,     # 24h
+    result_expires=3600 * 24,  # 24h
     # task 超时（pipeline 真实运行约 13s，给 5 分钟 buffer）
     task_time_limit=300,
     task_soft_time_limit=270,

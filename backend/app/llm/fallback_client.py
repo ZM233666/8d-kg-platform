@@ -59,7 +59,7 @@ class FallbackLLMClient:
                     timeout=self.primary_timeout_seconds,
                 )
             return await primary_call
-        except asyncio.TimeoutError as primary_error:
+        except TimeoutError:
             primary_error = LLMError(
                 f"{self.primary_provider} timed out after {self.primary_timeout_seconds}s"
             )

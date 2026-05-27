@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -26,7 +26,9 @@ from app.tasks.celery_app import celery_app
 router = APIRouter(tags=["extraction"])
 
 
-def _run_to_response(run: ExtractionRun, document_file_name: str | None = None) -> ExtractionRunResponse:
+def _run_to_response(
+    run: ExtractionRun, document_file_name: str | None = None
+) -> ExtractionRunResponse:
     """ORM → API 响应，附带文档文件名。"""
     resp = ExtractionRunResponse.model_validate(run)
     if document_file_name is not None:
@@ -53,7 +55,7 @@ async def trigger_extraction(
     # 2. INSERT extraction_runs(status='pending')
     run_id = uuid4()
     pipeline_version = "v0.1.0"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     run = ExtractionRun(
         id=run_id,
         document_id=document_id,
@@ -126,9 +128,7 @@ async def list_extraction_runs_legacy_alias(
     db: AsyncSession = Depends(get_db),
 ) -> ExtractionRunListResponse:
     """兼容旧前端误调 GET /extraction-runs/list（应使用 GET /extraction-runs）。"""
-    return await list_extraction_runs(
-        document_id=document_id, offset=offset, limit=limit, db=db
-    )
+    return await list_extraction_runs(document_id=document_id, offset=offset, limit=limit, db=db)
 
 
 @router.post(

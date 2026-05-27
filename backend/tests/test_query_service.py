@@ -1,4 +1,5 @@
 """query_service 单元测试。"""
+
 from app.services.query_service import _score_text, _tokenize
 
 

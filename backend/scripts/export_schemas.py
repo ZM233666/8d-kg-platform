@@ -8,39 +8,87 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.schemas.entity import (
-    EightDReport, Project, Customer, Operator, Part, Material, Standard,
-    TestMethod, Process, Equipment,
-    Vehicle, Laboratory, Person, Team, Supplier,
-    DefectOccurrence, InspectionEvent, Experiment,
-    ActionEvent, VerificationEvent, ClosureEvent,
-    Measurement, Finding, RootCause, RiskAssessment, Chunk, LeadsToEdge,
-)
 from app.schemas.concept import (
-    FailureModeConcept, FractographicFeatureConcept,
-    MetallurgicalDefectConcept, RootCauseConcept, ActionTypeConcept,
+    ActionTypeConcept,
+    FailureModeConcept,
+    FractographicFeatureConcept,
+    MetallurgicalDefectConcept,
+    RootCauseConcept,
+)
+from app.schemas.entity import (
+    ActionEvent,
+    Chunk,
+    ClosureEvent,
+    Customer,
+    DefectOccurrence,
+    EightDReport,
+    Equipment,
+    Experiment,
+    Finding,
+    InspectionEvent,
+    Laboratory,
+    LeadsToEdge,
+    Material,
+    Measurement,
+    Operator,
+    Part,
+    Person,
+    Process,
+    Project,
+    RiskAssessment,
+    RootCause,
+    Standard,
+    Supplier,
+    Team,
+    TestMethod,
+    Vehicle,
+    VerificationEvent,
 )
 
 OUTPUT_DIR = Path(__file__).parent.parent / "app" / "schemas" / "exported"
 
 ENTITY_CORE = [
-    EightDReport, Project, Customer, Operator, Part, Material, Standard,
-    TestMethod, Process, Equipment,
+    EightDReport,
+    Project,
+    Customer,
+    Operator,
+    Part,
+    Material,
+    Standard,
+    TestMethod,
+    Process,
+    Equipment,
 ]
 
 EVENT_MODELS = [
-    DefectOccurrence, InspectionEvent, Experiment,
-    ActionEvent, VerificationEvent, ClosureEvent,
+    DefectOccurrence,
+    InspectionEvent,
+    Experiment,
+    ActionEvent,
+    VerificationEvent,
+    ClosureEvent,
 ]
 
 CONCEPT_MODELS = [
-    FailureModeConcept, FractographicFeatureConcept,
-    MetallurgicalDefectConcept, RootCauseConcept, ActionTypeConcept,
+    FailureModeConcept,
+    FractographicFeatureConcept,
+    MetallurgicalDefectConcept,
+    RootCauseConcept,
+    ActionTypeConcept,
 ]
 
 AUXILIARY_MODELS = [
-    Vehicle, Laboratory, Person, Team, Supplier,
-    Measurement, Finding, RootCause, RiskAssessment, Chunk, LeadsToEdge,
+    Vehicle,
+    Laboratory,
+    Person,
+    Team,
+    Supplier,
+    Measurement,
+    Finding,
+    RootCause,
+    RiskAssessment,
+    Chunk,
+    LeadsToEdge,
 ]
 
 

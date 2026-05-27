@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import wraps
 from typing import Protocol
 
@@ -35,7 +35,7 @@ def stage(name: str) -> Callable[[Callable[..., Awaitable[PipelineContext]]], St
     def decorator(func: Callable[..., Awaitable[PipelineContext]]) -> Stage:
         @wraps(func)
         async def wrapper(ctx: PipelineContext) -> PipelineContext:
-            started = datetime.now(timezone.utc)
+            started = datetime.now(UTC)
             t0 = time.perf_counter()
             metric = StageMetric(stage_name=name, started_at=started)
             try:
@@ -50,7 +50,7 @@ def stage(name: str) -> Callable[[Callable[..., Awaitable[PipelineContext]]], St
                 logger.exception("stage.fail", stage=name, error=metric.error)
                 raise
             finally:
-                metric.finished_at = datetime.now(timezone.utc)
+                metric.finished_at = datetime.now(UTC)
                 metric.duration_ms = (time.perf_counter() - t0) * 1000
                 ctx.add_metric(metric)
                 if metric.ok:

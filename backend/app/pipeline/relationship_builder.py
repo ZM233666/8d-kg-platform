@@ -235,6 +235,7 @@ def resolve_report_business_key(
     report_id_hint: str | None = None,
 ) -> str | None:
     """解析 8D 报告 business_key, LLM 常输出 UNKNOWN, 需从 hint / event_id 兜底."""
+
     def _is_invalid_report_key(candidate: str | None) -> bool:
         if not candidate:
             return True
@@ -838,7 +839,9 @@ def _extract_operator_names_from_text(text: str) -> set[str]:
 def materialize_organizations_from_action_owners(er: ExtractionResult) -> None:
     """当 LLM 漏掉 organizations 时, 从多来源字段与文本保守补齐 Organization。"""
     existing_keys = {org.business_key for org in er.organizations}
-    existing_names = {_normalize_match_text(org.org_name) for org in er.organizations if org.org_name}
+    existing_names = {
+        _normalize_match_text(org.org_name) for org in er.organizations if org.org_name
+    }
     lexicon = load_lexicon()
     alias_entries = lexicon.get("organization_aliases", [])
 
@@ -872,7 +875,9 @@ def materialize_organizations_from_action_owners(er: ExtractionResult) -> None:
             org_type = entry.get("org_type") or _infer_org_type(name, preferred_type)
         elif _looks_like_orgish_name(name):
             business_key = (
-                _build_local_org_business_key(er, name) if _looks_like_generic_org_name(name) else name
+                _build_local_org_business_key(er, name)
+                if _looks_like_generic_org_name(name)
+                else name
             )
             org_name = name
             org_type = _infer_org_type(name, preferred_type)
@@ -916,7 +921,9 @@ def materialize_organizations_from_action_owners(er: ExtractionResult) -> None:
         _append_org(
             raw_name=product_instance.owner_name or "",
             supporting_chunks=list(product_instance.supporting_chunks),
-            preferred_type="运营商" if _looks_like_operator_name(product_instance.owner_name) else None,
+            preferred_type="运营商"
+            if _looks_like_operator_name(product_instance.owner_name)
+            else None,
         )
     for part_serial in er.part_serials:
         _append_org(
@@ -1151,7 +1158,9 @@ def materialize_failure_products(er: ExtractionResult) -> None:
         product.supporting_chunks = _merge_unique_text_list(
             product.supporting_chunks + mention.supporting_chunks
         )
-        product.source_section = _merge_unique_text_list(product.source_section + mention.source_section)
+        product.source_section = _merge_unique_text_list(
+            product.source_section + mention.source_section
+        )
         product.confidence = max(product.confidence, mention.confidence)
 
     er.failure_product_mentions = deduped_mentions
