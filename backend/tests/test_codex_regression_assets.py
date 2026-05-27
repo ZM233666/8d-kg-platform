@@ -31,7 +31,9 @@ def test_codex_regression_fixtures_have_required_shape() -> None:
             if not source_path.exists():
                 import pytest
 
-                pytest.skip(f"{path.name} source document not available in this environment: {source_path}")
+                pytest.skip(
+                    f"{path.name} source document not available in this environment: {source_path}"
+                )
 
         ctx = PipelineContext.model_validate(
             {
