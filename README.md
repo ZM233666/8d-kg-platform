@@ -50,6 +50,14 @@ cp .env.example .env
 # 编辑 .env 填入真实密码和 API Key
 ```
 
+**图谱可视化（默认 NeoVis.js）**：浏览器通过 Bolt 直连 Neo4j，需在 `.env` 配置 `VITE_NEO4J_*`。若需回滚到旧版 G6（经后端 REST 拉子图），设置：
+
+```bash
+VITE_GRAPH_RENDERER=g6
+```
+
+修改后需重启 `make frontend`。
+
 ### 3. 数据库迁移
 
 ```bash

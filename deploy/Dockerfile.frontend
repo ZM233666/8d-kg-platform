@@ -8,6 +8,19 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 COPY frontend ./
+
+# Vite 构建期注入（与仓库根 .env 中 VITE_* 一致）
+ARG VITE_GRAPH_RENDERER=neovis
+ARG VITE_NEO4J_BOLT_URL=bolt://neo4j:7687
+ARG VITE_NEO4J_USERNAME=neo4j
+ARG VITE_NEO4J_PASSWORD=
+ARG VITE_NEO4J_DATABASE=neo4j
+ENV VITE_GRAPH_RENDERER=$VITE_GRAPH_RENDERER \
+    VITE_NEO4J_BOLT_URL=$VITE_NEO4J_BOLT_URL \
+    VITE_NEO4J_USERNAME=$VITE_NEO4J_USERNAME \
+    VITE_NEO4J_PASSWORD=$VITE_NEO4J_PASSWORD \
+    VITE_NEO4J_DATABASE=$VITE_NEO4J_DATABASE
+
 # 生产默认使用相对路径 /api/v1（见 frontend/src/api/index.ts）
 RUN npm run build
 
